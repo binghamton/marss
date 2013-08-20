@@ -22,8 +22,21 @@ To compile Marss on your system, you will need following:
 
 Compiling
 ---------
-If you don't have SCons install, install it using your stanard application
-installation program like apt-get or yum.
+Before attempting to build MARSS, you must fetch the qemu submodule. After
+cloning the MARSS repository, give the following commands in the top-level
+directory:
+
+    $ git submodule init
+    $ git submodule update
+
+From time to time, you may find that you need to pull in bugfixes or new
+features from MARSS's qemu team. To do so, give the following command in the
+top-level directory at any time:
+
+    $ git submodule update
+
+On to building! If you don't have SCons installed, install it using your
+standard application installation program like apt-get or yum.
 
 Once you have SCons install go to Marss directory and give following command:
 
