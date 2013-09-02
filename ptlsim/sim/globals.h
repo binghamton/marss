@@ -9,6 +9,17 @@
 #ifndef _GLOBALS_H_
 #define _GLOBALS_H_
 
+// TODO/FIXME: This really doesn't belong here, but if this isn't
+// defined first, the compiler gets angry with us. Placing this
+// here is just a patch job, for now...
+
+extern "C" {
+#define class __class
+#define typename __typename
+#include "qapi-types.h"
+#undef class
+#undef typename
+};
 
 // #define fullsys_debug   cerr << "fullsys_debug: cycle ", sim_cycle, " in ", __FILE__, ":", __LINE__, " (", __PRETTY_FUNCTION__, ")"
 // //#define USE_MSDEBUG logable(5)
@@ -368,7 +379,9 @@ T reversebits(T v) {
 static inline W16 x86_sse_maskeqb(const vec16b v, byte target) { return x86_sse_pmovmskb(x86_sse_pcmpeqb(v, x86_sse_dupb(target))); }
 
 // This is a barrier for the compiler only, NOT the processor!
-#define barrier() asm volatile("": : :"memory")
+#ifndef barrier
+#define barrier()   ({ asm volatile("" ::: "memory"); (void)0; })
+#endif
 
 // Denote parallel sections for the compiler
 #define parallel

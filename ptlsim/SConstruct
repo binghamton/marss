@@ -26,9 +26,14 @@ env['CPPPATH'].append(qemu_dir)
 env['CPPPATH'].append("%s/%s" % (qemu_dir, "target-i386"))
 env['CPPPATH'].append("%s/%s" % (qemu_dir, "fpu"))
 env['CPPPATH'].append("%s/%s" % (qemu_dir, "x86_64-softmmu"))
+env['CPPPATH'].append("%s/%s" % (qemu_dir, "include"))
 
-optimization_defs = '-fno-trapping-math -fstack-protector -fno-exceptions '
-optimization_defs += '-fno-rtti -funroll-loops -fstrict-aliasing '
+env.Append(CCFLAGS = ' `pkg-config --cflags glib-2.0` ')
+env.Append(LDFLAGS = ' `pkg-config --libs glib-2.0` ')
+env.Append(CCFLAGS = ' -DTARGET_X86_64' )
+
+optimization_defs = '-std=gnu++0x -fno-trapping-math -fstack-protector '
+optimization_defs += '-fno-exceptions -fno-rtti -funroll-loops -fstrict-aliasing '
 
 GCC_VERSION = subprocess.Popen([env['CC'], '-dumpversion'],
 				stdout=subprocess.PIPE).communicate()[0].strip()
@@ -117,7 +122,9 @@ env.Append(CCFLAGS = "-DGITBRANCH=%s -DGITCOMMIT=%s -DGITDATE='%s'" %
         (git_branch, git_comm, git_date))
 
 env.Append(CCFLAGS = " -Wall -Wendif-labels -Wwrite-strings" +
-        " -Wno-redundant-decls")
+        " -Wno-redundant-decls -Wno-sign-compare -fpermissive" +
+        " -Wno-narrowing -Wno-deprecated-declarations " +
+        " -Wno-int-to-pointer-cast")
 Export('env')
 
 # print("Build Envrionment:")

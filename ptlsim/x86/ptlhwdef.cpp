@@ -297,13 +297,13 @@ bool Context::check_events() const {
 	if(exit_request)
 		return true;
 	if(eflags & IF_MASK)
-		return (interrupt_request > 0);
+		return (ENV_GET_CPU(this)->interrupt_request > 0);
 	return false;
 }
 
 bool Context::is_int_pending() const {
     if(eflags & IF_MASK)
-        return (interrupt_request > 0);
+        return (ENV_GET_CPU(this)->interrupt_request > 0);
     return false;
 }
 

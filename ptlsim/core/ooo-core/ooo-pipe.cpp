@@ -51,7 +51,7 @@ bool OooCore::icache_wakeup(void *arg) {
                 && thread->waiting_for_icache_fill
                 && thread->waiting_for_icache_fill_physaddr ==
                 floor(physaddr, ICACHE_FETCH_GRANULARITY)) {
-            if (logable(6)) ptl_logfile << "[vcpu ", thread->ctx.cpu_index, "] i-cache wakeup of physaddr ", (void*)(Waddr)physaddr, endl;
+            if (logable(6)) ptl_logfile << "[vcpu ", ENV_GET_CPU(&(thread->ctx))->cpu_index, "] i-cache wakeup of physaddr ", (void*)(Waddr)physaddr, endl;
             thread->waiting_for_icache_fill = 0;
             thread->waiting_for_icache_fill_physaddr = 0;
             if unlikely (thread->itlb_walk_level > 0) {
@@ -59,7 +59,7 @@ bool OooCore::icache_wakeup(void *arg) {
                 thread->itlbwalk();
             }
         }else{
-            if (logable(6)) ptl_logfile << "[vcpu ", thread->ctx.cpu_index, "] i-cache wait ", (void*)thread->waiting_for_icache_fill_physaddr,
+            if (logable(6)) ptl_logfile << "[vcpu ", ENV_GET_CPU(&(thread->ctx))->cpu_index, "] i-cache wait ", (void*)thread->waiting_for_icache_fill_physaddr,
                 " delivered ", (void*) physaddr,endl;
         }
     }
@@ -327,8 +327,8 @@ void ThreadContext::reset_fetch_unit(W64 realrip) {
 void ThreadContext::invalidate_smc() {
     if unlikely (smc_invalidate_pending) {
         if (logable(5)) ptl_logfile << "SMC invalidate pending on ", smc_invalidate_rvp, endl;
-        bbcache[ctx.cpu_index].invalidate_page(smc_invalidate_rvp.mfnlo, INVALIDATE_REASON_SMC);
-        if unlikely (smc_invalidate_rvp.mfnlo != smc_invalidate_rvp.mfnhi) bbcache[ctx.cpu_index].invalidate_page(smc_invalidate_rvp.mfnhi, INVALIDATE_REASON_SMC);
+        bbcache[ENV_GET_CPU(&ctx)->cpu_index].invalidate_page(smc_invalidate_rvp.mfnlo, INVALIDATE_REASON_SMC);
+        if unlikely (smc_invalidate_rvp.mfnlo != smc_invalidate_rvp.mfnhi) bbcache[ENV_GET_CPU(&ctx)->cpu_index].invalidate_page(smc_invalidate_rvp.mfnhi, INVALIDATE_REASON_SMC);
         smc_invalidate_pending = 0;
     }
 }
@@ -442,7 +442,7 @@ void ThreadContext::redispatch_deadlock_recovery() {
     if (logable(3)) ptl_logfile << " redispatch_deadlock_recovery, flush_pipeline.",endl;
     flush_pipeline();
     last_commit_at_cycle = previous_last_commit_at_cycle; /* so we can exit after no commit after deadlock recovery a few times in a roll */
-    ptl_logfile << "[vcpu ", ctx.cpu_index, "] thread ", threadid, ": reset thread.last_commit_at_cycle to be before redispatch_deadlock_recovery() ", previous_last_commit_at_cycle, endl;
+    ptl_logfile << "[vcpu ", ENV_GET_CPU(&ctx)->cpu_index, "] thread ", threadid, ": reset thread.last_commit_at_cycle to be before redispatch_deadlock_recovery() ", previous_last_commit_at_cycle, endl;
     /*
     //
     // This is a more selective scheme than the full pipeline flush.
@@ -766,12 +766,12 @@ BasicBlock* ThreadContext::fetch_or_translate_basic_block(const RIPVirtPhys& rvp
         current_basic_block = NULL;
     }
 
-    BasicBlock* bb = bbcache[ctx.cpu_index](rvp);
+    BasicBlock* bb = bbcache[ENV_GET_CPU(&ctx)->cpu_index](rvp);
 
     if likely (bb) {
         current_basic_block = bb;
     } else {
-        current_basic_block = bbcache[ctx.cpu_index].translate(ctx, rvp);
+        current_basic_block = bbcache[ENV_GET_CPU(&ctx)->cpu_index].translate(ctx, rvp);
         if (current_basic_block == NULL) return NULL;
         assert(current_basic_block);
     }
@@ -1632,19 +1632,19 @@ void ThreadContext::flush_mem_lock_release_list(int start) {
         W64 lockaddr = queued_mem_lock_release_list[i];
 
         bool lock = core.memoryHierarchy->probe_lock(lockaddr,
-                ctx.cpu_index);
+                ENV_GET_CPU(&ctx)->cpu_index);
 
         if (!lock) {
-            ptl_logfile << "ERROR: thread ", ctx.cpu_index, ": attempted to release queued lock #", i, " for physaddr ", (void*)lockaddr, ": lock was ", lock, endl;
+            ptl_logfile << "ERROR: thread ", ENV_GET_CPU(&ctx)->cpu_index, ": attempted to release queued lock #", i, " for physaddr ", (void*)lockaddr, ": lock was ", lock, endl;
             assert(false);
         }
 
         if(logable(8)) {
             ptl_logfile << "Releasing mem lock of addr: ", lockaddr,
-                        " from cpu: ", ctx.cpu_index, endl;
+                        " from cpu: ", ENV_GET_CPU(&ctx)->cpu_index, endl;
         }
 
-        core.memoryHierarchy->invalidate_lock(lockaddr, ctx.cpu_index);
+        core.memoryHierarchy->invalidate_lock(lockaddr, ENV_GET_CPU(&ctx)->cpu_index);
     }
 
     queued_mem_lock_release_count = start;
@@ -1953,7 +1953,7 @@ int ReorderBufferEntry::commit() {
     if unlikely (uop.opcode == OP_st) {
         W64 lockaddr = lsq->physaddr << 3;
         bool lock = core.memoryHierarchy->probe_lock(lockaddr,
-                thread.ctx.cpu_index);
+                ENV_GET_CPU(&(thread.ctx))->cpu_index);
 
         if unlikely (!lock) {
             thread.thread_stats.commit.result.memlocked++;
@@ -2056,7 +2056,7 @@ int ReorderBufferEntry::commit() {
     if likely (uop.som) assert(ctx.get_cs_eip() == uop.rip);
 
     if unlikely (!ctx.kernel_mode && config.checker_enabled && uop.som) {
-        setup_checker(ctx.cpu_index);
+        setup_checker(ENV_GET_CPU(&ctx)->cpu_index);
         reset_checker_stores();
     }
 
@@ -2147,7 +2147,7 @@ int ReorderBufferEntry::commit() {
         if likely (!isclass(uop.opcode, OPCLASS_BARRIER) &&
                 uop.rip.rip != ctx.eip && !mmio) {
             execute_checker();
-            compare_checker(ctx.cpu_index, setflags_to_x86_flags[uop.setflags]);
+            compare_checker(ENV_GET_CPU(&ctx)->cpu_index, setflags_to_x86_flags[uop.setflags]);
         } else {
             clear_checker();
         }
@@ -2301,7 +2301,7 @@ int ReorderBufferEntry::commit() {
     }
 
     if unlikely (uop_is_eom & thread.stop_at_next_eom) {
-        ptl_logfile << "[vcpu ", thread.ctx.cpu_index, "] Stopping at cycle ", sim_cycle, " (", total_insns_committed, " commits)", endl;
+        ptl_logfile << "[vcpu ", ENV_GET_CPU(&(thread.ctx))->cpu_index, "] Stopping at cycle ", sim_cycle, " (", total_insns_committed, " commits)", endl;
         return COMMIT_RESULT_STOP;
     }
 

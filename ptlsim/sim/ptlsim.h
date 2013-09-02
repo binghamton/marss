@@ -17,12 +17,12 @@
 
 #include <statsBuilder.h>
 
-#include <sysemu.h>
-
 #define INVALID_MFN 0xffffffffffffffffULL
 #define INVALID_PHYSADDR 0xffffffffffffffffULL
 
 #define contextcount smp_cpus
+
+extern int smp_cpus;
 
 void user_process_terminated(int rc);
 

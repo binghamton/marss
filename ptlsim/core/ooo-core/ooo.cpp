@@ -119,7 +119,7 @@ ThreadContext::ThreadContext(OooCore& core_, W8 threadid_, Context& ctx_)
     thread_stats.update_name(stats_name.buf);
 
     /* Set decoder stats */
-    set_decoder_stats(&thread_stats, ctx.cpu_index);
+    set_decoder_stats(&thread_stats, ENV_GET_CPU(&ctx)->cpu_index);
 
     /* Connect stats equations */
     thread_stats.issue.uipc.add_elem(&thread_stats.issue.uops);
@@ -837,7 +837,7 @@ bool OooCore::runcycle(void* none) {
                 {
                     if (logable(3) && thread->current_basic_block &&
                             thread->current_basic_block->rip) {
-                        ptl_logfile << " [vcpu ", thread->ctx.cpu_index, "] in exception handling at rip ", thread->current_basic_block->rip, endl, flush;
+                        ptl_logfile << " [vcpu ", ENV_GET_CPU(&(thread->ctx))->cpu_index, "] in exception handling at rip ", thread->current_basic_block->rip, endl, flush;
                     }
                     exiting = !thread->handle_exception();
                     break;
@@ -846,7 +846,7 @@ bool OooCore::runcycle(void* none) {
                 {
                     if (logable(3) && thread->current_basic_block &&
                             thread->current_basic_block->rip) {
-                        ptl_logfile << " [vcpu ", thread->ctx.cpu_index, "] in barrier handling at rip ", thread->current_basic_block->rip, endl, flush;
+                        ptl_logfile << " [vcpu ", ENV_GET_CPU(&(thread->ctx))->cpu_index, "] in barrier handling at rip ", thread->current_basic_block->rip, endl, flush;
                     }
                     exiting = !thread->handle_barrier();
                     break;
@@ -855,7 +855,7 @@ bool OooCore::runcycle(void* none) {
                 {
                     if (logable(3) && thread->current_basic_block &&
                             thread->current_basic_block->rip) {
-                        ptl_logfile << " [vcpu ", thread->ctx.cpu_index, "] in interrupt handling at rip ", thread->current_basic_block->rip, endl, flush;
+                        ptl_logfile << " [vcpu ", ENV_GET_CPU(&(thread->ctx))->cpu_index, "] in interrupt handling at rip ", thread->current_basic_block->rip, endl, flush;
                     }
                     exiting = 1;
                     thread->handle_interrupt();
@@ -905,7 +905,7 @@ bool OooCore::runcycle(void* none) {
         ThreadContext* thread = threads[i];
         if (logable(9)) {
             stringbuf sb;
-            sb << "[vcpu ", thread->ctx.cpu_index, "] thread ", thread->threadid, ": WARNING: At cycle ",
+            sb << "[vcpu ", ENV_GET_CPU(&(thread->ctx))->cpu_index, "] thread ", thread->threadid, ": WARNING: At cycle ",
                sim_cycle, ", ", total_insns_committed,  " user commits: ",
                (sim_cycle - thread->last_commit_at_cycle), " cycles;", endl;
             ptl_logfile << sb, flush;
@@ -918,7 +918,7 @@ bool OooCore::runcycle(void* none) {
 
         if unlikely ((sim_cycle - thread->last_commit_at_cycle) > (W64)1024*1024*threadcount) {
             stringbuf sb;
-            sb << "[vcpu ", thread->ctx.cpu_index, "] thread ", thread->threadid, ": WARNING: At cycle ",
+            sb << "[vcpu ", ENV_GET_CPU((&thread->ctx))->cpu_index, "] thread ", thread->threadid, ": WARNING: At cycle ",
                sim_cycle, ", ", total_insns_committed,  " user commits: no instructions have committed for ",
                (sim_cycle - thread->last_commit_at_cycle), " cycles; the pipeline could be deadlocked", endl;
             ptl_logfile << sb, flush;
@@ -1345,7 +1345,7 @@ bool ThreadContext::handle_barrier() {
     }
 
     if (logable(1)) {
-        ptl_logfile << "[vcpu ", ctx.cpu_index, "] Barrier (#", assistid, " -> ", (void*)assist, " ", assist_name(assist), " called from ",
+        ptl_logfile << "[vcpu ", ENV_GET_CPU(&ctx)->cpu_index, "] Barrier (#", assistid, " -> ", (void*)assist, " ", assist_name(assist), " called from ",
                     (RIPVirtPhys(ctx.reg_selfrip).update(ctx)), "; return to ", (void*)(Waddr)ctx.reg_nextrip,
                     ") at ", sim_cycle, " cycles, ", total_insns_committed, " commits", endl, flush;
     }
@@ -1393,7 +1393,7 @@ bool ThreadContext::handle_exception() {
     flush_pipeline();
 
     if (logable(4)) {
-        ptl_logfile << "[vcpu ", ctx.cpu_index, "] Exception ", exception_name(ctx.exception), " called from rip ", (void*)(Waddr)ctx.eip,
+        ptl_logfile << "[vcpu ", ENV_GET_CPU(&ctx)->cpu_index, "] Exception ", exception_name(ctx.exception), " called from rip ", (void*)(Waddr)ctx.eip,
                     " at ", sim_cycle, " cycles, ", total_insns_committed, " commits", endl, flush;
     }
 
@@ -1452,6 +1452,7 @@ handle_page_fault:
                                 hexstring(exception_address, 64),
                                 " is_write: ", write_exception, endl, ctx, endl;
                 assert(ctx.page_fault_addr != 0);
+#if 1
                 int old_exception = ctx.exception_index;
                 ctx.handle_interrupt = 1;
                 ctx.handle_page_fault(exception_address, write_exception);
@@ -1465,6 +1466,17 @@ handle_page_fault:
                 ctx.exception_index = old_exception;
                 ctx.exception_is_int = 0;
                 return true;
+#endif
+#if 0
+                ctx.handle_interrupt = 1;
+                ctx.exception_is_int = 1;
+                flush_pipeline();
+
+                int mmu_idx = cpu_mmu_index(&ctx);
+                cpu_x86_handle_mmu_fault(&ctx, exception_address, write_exception, mmu_idx);
+                ctx.propagate_x86_exception(ctx.exception_index, ctx.error_code, exception_address);
+                return false;
+#endif
             }
             break;
         case EXCEPTION_FloatingPointNotAvailable:
@@ -1523,7 +1535,7 @@ bool ThreadContext::handle_interrupt() {
     if (logable(3)) ptl_logfile << " handle_interrupt, flush_pipeline again.",endl;
 
     /* update the stats */
-    if(ctx.exit_request) {
+    if(ENV_GET_CPU(&ctx)->exit_request) {
         thread_stats.cpu_exit_requests++;
     } else {
         thread_stats.interrupt_requests++;
@@ -1575,7 +1587,7 @@ void OooCore::check_ctx_changes()
         ctx.handle_interrupt = 0;
 
         if(logable(4))
-            ptl_logfile << " Ctx[", ctx.cpu_index, "] eflags: ", (void*)ctx.eflags, endl;
+            ptl_logfile << " Ctx[", ENV_GET_CPU(&ctx)->cpu_index, "] eflags: ", (void*)ctx.eflags, endl;
         if(ctx.eip != ctx.old_eip) {
             if(logable(5))
                 ptl_logfile << "Old_eip: ", (void*)(ctx.old_eip), " New_eip: " ,

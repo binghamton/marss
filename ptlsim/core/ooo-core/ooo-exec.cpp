@@ -793,6 +793,7 @@ Waddr ReorderBufferEntry::addrgen(LoadStoreQueueEntry& state, Waddr& origaddr, W
                     " rc:", rc, " addr:", hexstring(addr, 64), endl;
         ptl_logfile << " at uop: ", uop, " at rip: ",
                     hexstring(uop.rip.rip, 64), endl;
+        ptl_logfile.flush();
     }
 
      /*
@@ -977,7 +978,7 @@ bool ReorderBufferEntry::release_mem_lock(bool forced) {
 
     W64 physaddr = lsq->physaddr << 3;
     bool lock = core.memoryHierarchy->probe_lock(physaddr,
-            thread.ctx.cpu_index);
+            ENV_GET_CPU(&(thread.ctx))->cpu_index);
     assert(lock);
 
      /*
@@ -1268,7 +1269,7 @@ int ReorderBufferEntry::issuestore(LoadStoreQueueEntry& state, Waddr& origaddr, 
     if unlikely ((contextcount > 1) && (!annul)) {
         W64 physaddr = state.physaddr << 3;
         bool lock = core.memoryHierarchy->probe_lock(physaddr,
-                thread.ctx.cpu_index);
+                ENV_GET_CPU(&(thread.ctx))->cpu_index);
 
         /*
          *
@@ -1286,9 +1287,9 @@ int ReorderBufferEntry::issuestore(LoadStoreQueueEntry& state, Waddr& origaddr, 
 
             if(logable(8)) {
                 cerr << "Memory addr ", hexstring(physaddr, 64),
-                     " is locked by ", thread.ctx.cpu_index, endl;
+                     " is locked by ", ENV_GET_CPU(&(thread.ctx))->cpu_index, endl;
                 ptl_logfile << "Memory addr ", hexstring(physaddr, 64),
-                            " is locked by ", thread.ctx.cpu_index, endl;
+                            " is locked by ", ENV_GET_CPU(&(thread.ctx))->cpu_index, endl;
             }
 
             thread.thread_stats.dcache.store.issue.replay.interlocked++;
@@ -1664,14 +1665,14 @@ int ReorderBufferEntry::issueload(LoadStoreQueueEntry& state, Waddr& origaddr, W
      */
     if (!annul) {
         W64 lockaddr = state.physaddr << 3;
-        if(!core.memoryHierarchy->probe_lock(lockaddr, thread.ctx.cpu_index)) {
+        if(!core.memoryHierarchy->probe_lock(lockaddr, ENV_GET_CPU(&(thread.ctx))->cpu_index)) {
             /* Lock is held by some other thread */
             replay_locked();
             return ISSUE_NEEDS_REPLAY;
         }
 
         if (uop.locked) {
-            if(!core.memoryHierarchy->grab_lock(lockaddr, thread.ctx.cpu_index)) {
+            if(!core.memoryHierarchy->grab_lock(lockaddr, ENV_GET_CPU(&(thread.ctx))->cpu_index)) {
                 /* Can't grab the lock, issue failed */
                 thread.thread_stats.dcache.load.issue.replay.interlock_overflow++;
                 replay();

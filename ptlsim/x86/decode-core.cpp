@@ -721,7 +721,7 @@ TraceDecoder::TraceDecoder(Context& ctx, Waddr rip) {
     cs_base = ctx.segs[R_CS].base;
     kernel = ctx.kernel_mode;
     dirflag = ((ctx.internal_eflags & FLAG_DF) != 0);
-    cpuid = ctx.cpu_index;
+    cpuid = ENV_GET_CPU(&ctx)->cpu_index;
 
     pe = (ctx.hflags >> HF_PE_SHIFT) & 1;
     vm86 = (ctx.eflags >> VM_SHIFT) & 1;
@@ -1965,7 +1965,7 @@ bool assist_exec_page_fault(Context& ctx) {
     Waddr bbcache_rip = ctx.reg_ar2;
 
     ctx.eip = ctx.reg_selfrip;
-    assert(bbcache[ctx.cpu_index].invalidate(RIPVirtPhys(bbcache_rip).update(ctx), INVALIDATE_REASON_SPURIOUS));
+    assert(bbcache[ENV_GET_CPU(&ctx)->cpu_index].invalidate(RIPVirtPhys(bbcache_rip).update(ctx), INVALIDATE_REASON_SPURIOUS));
     ctx.handle_page_fault(faultaddr, 2);
 
     return true;
@@ -2128,7 +2128,7 @@ int TraceDecoder::fillbuf(Context& ctx, byte* insnbytes, int insnbytes_bufsize) 
     use64 = ctx.use64;
     use32 = ctx.use32;
     ss32 = (ctx.hflags >> HF_SS32_SHIFT) & 1;
-    cpuid = ctx.cpu_index;
+    cpuid = ENV_GET_CPU(&ctx)->cpu_index;
 
     byteoffset = 0;
     faultaddr = 0;
@@ -2348,7 +2348,7 @@ BasicBlock* BasicBlockCache::translate(Context& ctx, const RIPVirtPhys& rvp) {
        */
 
     BasicBlock* bb = get(rvp);
-    if likely (bb && bb->context_id == ctx.cpu_index) {
+    if likely (bb && bb->context_id == ENV_GET_CPU(&ctx)->cpu_index) {
         return bb;
     }
 
@@ -2450,7 +2450,7 @@ BasicBlock* BasicBlockCache::translate(Context& ctx, const RIPVirtPhys& rvp) {
         ptl_logfile << "End of basic block: rip ", trans.bb.rip, " -> taken rip 0x", (void*)(Waddr)trans.bb.rip_taken, ", not taken rip 0x", (void*)(Waddr)trans.bb.rip_not_taken, endl;
     }
 
-    bb->context_id = ctx.cpu_index;
+    bb->context_id = ENV_GET_CPU(&ctx)->cpu_index;
 
     translate_timer.stop();
 

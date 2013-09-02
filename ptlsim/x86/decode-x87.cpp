@@ -9,10 +9,13 @@
  */
 
 #include <decode.h>
-
-#include <helper.h>
-
 #include <math.h>
+
+extern "C" {
+#include <exec/softmmu_exec.h>
+#include <helper.h>
+}
+
 /*
  *
  * x87 assists
@@ -29,9 +32,9 @@ W64 l_assist_x87_fist(Context& ctx, W64 ra, W64 rb, W64 rc, W16 raflags, W16 rbf
 	ctx.setup_qemu_switch();
 
 	switch (size) {
-		case 1: result = (W64)helper_fist_ST0(); break;
-		case 2: result = (W64)helper_fistl_ST0(); break;
-		case 3: result = (W64)helper_fistll_ST0(); break;
+		case 1: result = (W64)helper_fist_ST0(&ctx); break;
+		case 2: result = (W64)helper_fistl_ST0(&ctx); break;
+		case 3: result = (W64)helper_fistll_ST0(&ctx); break;
 		default: assert(0);
 	}
 
@@ -41,14 +44,14 @@ W64 l_assist_x87_fist(Context& ctx, W64 ra, W64 rb, W64 rc, W16 raflags, W16 rbf
 }
 
 bool assist_x87_fprem(Context& ctx) {
-    ASSIST_IN_QEMU(helper_fprem);
+    ASSIST_IN_QEMU(helper_fprem, &ctx);
     ctx.eip = ctx.reg_nextrip;
     return true;
 }
 
-#define make_two_input_x87_func_with_pop(name, expr) \
+#define make_two_input_x87_func_with_pop(name, cptr, expr) \
 bool assist_x87_##name(Context& ctx) { \
-	ASSIST_IN_QEMU(helper_##name); \
+	ASSIST_IN_QEMU(helper_##name, cptr); \
 	ctx.eip = ctx.reg_nextrip; \
   return true; \
 }
@@ -84,7 +87,7 @@ double x87_fpatan(double st1, double st0) {
 }
 
 /* st(1) = st(1) * log2(st(0)) and pop st(0) */
-make_two_input_x87_func_with_pop(fyl2x, st1u.d = x87_fyl2x(st1u.d, st0u.d));
+make_two_input_x87_func_with_pop(fyl2x, &ctx, st1u.d = x87_fyl2x(st1u.d, st0u.d));
 /*
  *
  *  st(1) = st(1) * log2(st(0) + 1.0) and pop st(0)
@@ -92,54 +95,54 @@ make_two_input_x87_func_with_pop(fyl2x, st1u.d = x87_fyl2x(st1u.d, st0u.d));
  *  such that ((st0 + 1.0) < 0), rather than return NaN, it
  * returns the old value in st0 but still pops the stack.
  */
-make_two_input_x87_func_with_pop(fyl2xp1, st1u.d = x87_fyl2xp1(st1u.d, st0u.d));
+make_two_input_x87_func_with_pop(fyl2xp1, &ctx, st1u.d = x87_fyl2xp1(st1u.d, st0u.d));
 
 /* st(1) = arctan(st(1) / st(0)) */
-make_two_input_x87_func_with_pop(fpatan, st1u.d = x87_fpatan(st1u.d, st0u.d));
+make_two_input_x87_func_with_pop(fpatan, &ctx, st1u.d = x87_fpatan(st1u.d, st0u.d));
 
 bool assist_x87_fscale(Context& ctx) {
-	ASSIST_IN_QEMU(helper_fscale);
+	ASSIST_IN_QEMU(helper_fscale, &ctx);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }
 
 #define log2 old_log2
 
-#define make_unary_x87_func(name, expr) \
+#define make_unary_x87_func(name, cptr, expr) \
 bool assist_x87_##name(Context& ctx) { \
-	ASSIST_IN_QEMU(helper_##name); \
+	ASSIST_IN_QEMU(helper_##name, cptr); \
 	ctx.eip = ctx.reg_nextrip; \
   return true; \
 }
 
-make_unary_x87_func(fsqrt, sqrt(ra.d));
-make_unary_x87_func(fsin, sin(ra.d));
-make_unary_x87_func(fcos, cos(ra.d));
-make_unary_x87_func(f2xm1, exp2(ra.d) - 1);
+make_unary_x87_func(fsqrt, &ctx, sqrt(ra.d));
+make_unary_x87_func(fsin, &ctx, sin(ra.d));
+make_unary_x87_func(fcos, &ctx, cos(ra.d));
+make_unary_x87_func(f2xm1, &ctx, exp2(ra.d) - 1);
 
 bool assist_x87_frndint(Context& ctx) {
-	ASSIST_IN_QEMU(helper_frndint);
+	ASSIST_IN_QEMU(helper_frndint, &ctx);
     ctx.eip = ctx.reg_nextrip;
   return true;
 }
 
-#define make_two_output_x87_func_with_push(name, expr) \
+#define make_two_output_x87_func_with_push(name, cptr, expr) \
 bool assist_x87_##name(Context& ctx) { \
-	ASSIST_IN_QEMU(helper_##name); \
+	ASSIST_IN_QEMU(helper_##name, cptr); \
 	ctx.eip = ctx.reg_nextrip; \
   return true; \
 }
 
 /* st(0) = sin(st(0)) and push cos(orig st(0)) */
-make_two_output_x87_func_with_push(fsincos, (st1u.d = cos(st0u.d), st0u.d = sin(st0u.d)));
+make_two_output_x87_func_with_push(fsincos, &ctx, (st1u.d = cos(st0u.d), st0u.d = sin(st0u.d)));
 
 /* st(0) = tan(st(0)) and push value 1.0 */
-make_two_output_x87_func_with_push(fptan, (st1u.d = 1.0, st0u.d = tan(st0u.d)));
+make_two_output_x87_func_with_push(fptan, &ctx, (st1u.d = 1.0, st0u.d = tan(st0u.d)));
 
-make_two_output_x87_func_with_push(fxtract, (st1u.d = significand(st0u.d), st0u.d = ilogb(st0u.d)));
+make_two_output_x87_func_with_push(fxtract, &ctx, (st1u.d = significand(st0u.d), st0u.d = ilogb(st0u.d)));
 
 bool assist_x87_fprem1(Context& ctx) {
-	ASSIST_IN_QEMU(helper_fprem1);
+	ASSIST_IN_QEMU(helper_fprem1, &ctx);
 //	ctx.setup_qemu_switch();
 //	helper_fprem1();
 	ctx.eip = ctx.reg_nextrip;
@@ -163,7 +166,7 @@ bool assist_x87_fprem1(Context& ctx) {
 //}
 
 bool assist_x87_fxam(Context& ctx) {
-    ASSIST_IN_QEMU(helper_fxam_ST0);
+    ASSIST_IN_QEMU(helper_fxam_ST0, &ctx);
 //	ctx.setup_qemu_switch();
 //	helper_fxam_ST0();
 	ctx.eip = ctx.reg_nextrip;
@@ -230,7 +233,7 @@ bool assist_x87_fstp80(Context& ctx) {
     setup_qemu_switch_all_ctx(ctx);
     ptl_stable_state = 1;
     foreach(i, 10) {
-        stb_user(addr++, data[i]);
+        cpu_stb_user(&ctx, addr++, data[i]);
     }
     ptl_stable_state = 0;
     setup_ptlsim_switch_all_ctx(ctx);
@@ -263,14 +266,14 @@ bool assist_x87_frstor(Context& ctx) {
 
     Waddr ptr = ctx.reg_ar1;
     int data32 = ctx.reg_ar2;
-    ASSIST_IN_QEMU(helper_frstor, ptr, data32);
+    ASSIST_IN_QEMU(helper_frstor, &ctx, ptr, data32);
     ctx.eip = ctx.reg_nextrip;
 
     return true;
 }
 
 bool assist_x87_fclex(Context& ctx) {
-	ASSIST_IN_QEMU(helper_fclex);
+	ASSIST_IN_QEMU(helper_fclex, &ctx);
 //	ctx.setup_qemu_switch();
 //	helper_fclex();
 	ctx.eip = ctx.reg_nextrip;
@@ -301,7 +304,7 @@ bool assist_x87_finit(Context& ctx) {
 bool assist_x87_fxch(Context& ctx) {
 	int reg = ctx.reg_ar1;
 
-	ASSIST_IN_QEMU(helper_fxchg_ST0_STN, reg);
+	ASSIST_IN_QEMU(helper_fxchg_ST0_STN, &ctx, reg);
 
 	ctx.eip = ctx.reg_nextrip;
   return true;
@@ -311,7 +314,7 @@ bool assist_x87_fnstenv(Context& ctx) {
 
     Waddr ptr = ctx.reg_ar1;
     int data32 = ctx.reg_ar2;
-    ASSIST_IN_QEMU(helper_fstenv, ptr, data32);
+    ASSIST_IN_QEMU(helper_fstenv, &ctx, ptr, data32);
     ctx.eip = ctx.reg_nextrip;
 
     return true;
@@ -321,7 +324,7 @@ bool assist_x87_fldenv(Context& ctx) {
 
     Waddr ptr = ctx.reg_ar1;
     int data32 = ctx.reg_ar2;
-    ASSIST_IN_QEMU(helper_fldenv, ptr, data32);
+    ASSIST_IN_QEMU(helper_fldenv, &ctx, ptr, data32);
     ctx.eip = ctx.reg_nextrip;
 
     return true;
@@ -330,8 +333,8 @@ bool assist_x87_fldenv(Context& ctx) {
 bool assist_x87_fbstp(Context& ctx) {
 
     Waddr ptr = ctx.reg_ar1;
-    ASSIST_IN_QEMU(helper_fbst_ST0, ptr);
-    ASSIST_IN_QEMU(helper_fpop);
+    ASSIST_IN_QEMU(helper_fbst_ST0, &ctx, ptr);
+    ASSIST_IN_QEMU(helper_fpop, &ctx);
     ctx.eip = ctx.reg_nextrip;
 
     return true;
@@ -340,7 +343,7 @@ bool assist_x87_fbstp(Context& ctx) {
 bool assist_x87_fbld(Context& ctx) {
 
     Waddr ptr = ctx.reg_ar1;
-    ASSIST_IN_QEMU(helper_fbld_ST0, ptr);
+    ASSIST_IN_QEMU(helper_fbld_ST0, &ctx, ptr);
     ctx.eip = ctx.reg_nextrip;
 
     return true;
@@ -350,7 +353,7 @@ bool assist_x87_fnsave(Context& ctx) {
 
     Waddr ptr = ctx.reg_ar1;
     int data32 = ctx.reg_ar2;
-    ASSIST_IN_QEMU(helper_fsave, ptr, data32);
+    ASSIST_IN_QEMU(helper_fsave, &ctx, ptr, data32);
     ctx.eip = ctx.reg_nextrip;
 
     return true;
@@ -359,7 +362,7 @@ bool assist_x87_fnsave(Context& ctx) {
 bool assist_x87_fldcw(Context& ctx) {
 
     W16 val = ctx.reg_ar1;
-    ASSIST_IN_QEMU(helper_fldcw, val);
+    ASSIST_IN_QEMU(helper_fldcw, &ctx, val);
 
     /* Update the rounding control from fpcw to mxcsr */
     int rounding = (ctx.fpuc >> 10) & 3;

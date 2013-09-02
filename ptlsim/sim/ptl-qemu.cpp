@@ -30,14 +30,16 @@
  *
  */
 
-
 #include <globals.h>
 #include <ptlhwdef.h>
 
 extern "C" {
-#include <sysemu.h>
-#include <qemu-objects.h>
-#include <monitor.h>
+#include <include/sysemu/sysemu.h>
+#include <include/monitor/monitor.h>
+#include <include/exec/address-spaces.h>
+#include <include/exec/cpu-all.h>
+#include <include/exec/memory.h>
+#include <include/exec/softmmu_exec.h>
 }
 
 #include <ptl-qemu.h>
@@ -49,6 +51,10 @@ extern "C" {
 #include <ptlcalls.h>
 
 #include <test.h>
+
+extern "C" {
+void cpu_set_sim_ticks(void);
+}
 
 /*
  * Physical address of the PTLsim PTLCALL hypercall page
@@ -74,24 +80,28 @@ static void save_core_dump(char* dump, W64 dump_size,
 {
     stringbuf  filename;
     ofstream   df;
-    char      *_addr;
     char      *dmp;
     char      *app;
 
-    dmp = (char*)qemu_malloc(sizeof(char) * dump_size);
-    app = (char*)qemu_malloc((sizeof(char) * app_name_size) + 1);
+    dmp = (char*)g_malloc(sizeof(char) * dump_size);
+    app = (char*)g_malloc((sizeof(char) * app_name_size) + 1);
 
+#if 0
+    char      *_addr;
+
+    // TODO/FIXME: qemu-1.6+ dumps
     _addr = dump;
     foreach(i, (W64s)dump_size) {
-        dmp[i] = (char)ldub_kernel((target_ulong)(_addr));
+        dmp[i] = (char)cpu_ldub_kernel(this, (target_ulong)(_addr));
         _addr++;
     }
 
     _addr = app_name;
     foreach(i, (int)app_name_size) {
-        app[i] = (char)ldub_kernel((target_ulong)(_addr));
+        app[i] = (char)cpu_ldub_kernel(this, (target_ulong)(_addr));
         _addr++;
     }
+#endif
     app[app_name_size] = '\0';
 
     filename << app << "-core";
@@ -105,8 +115,7 @@ static void save_core_dump(char* dump, W64 dump_size,
                 filename, " with signal ", signum, endl;
 }
 
-static void ptlcall_mmio_write(CPUX86State* cpu, W64 offset, W64 value,
-        int length) {
+void ptlcall_mmio_write(CPUX86State* cpu, W64 offset, W64 value, int length) {
     int calltype = (int)(cpu->regs[REG_rax]);
     W64 arg1 = cpu->regs[REG_rdi];
     W64 arg2 = cpu->regs[REG_rsi];
@@ -141,28 +150,26 @@ static void ptlcall_mmio_write(CPUX86State* cpu, W64 offset, W64 value,
 
                 foreach (i, num_desc) {
                     PTLsimCommandDescriptor desc;
-                    desc.command = (W64)(ldq_kernel(desc_ptr));
-                    desc.length = (W64)(ldq_kernel(desc_ptr + 8));
-
+                    desc.command = (W64)(cpu_ldq_kernel(cpu, desc_ptr));
+                    desc.length = (W64)(cpu_ldq_kernel(cpu, desc_ptr + 8));
                     desc_ptr += 16;
 
-                    char *command_str = (char*)qemu_malloc(desc.length + 1);
+                    char *command_str = (char*)g_malloc(desc.length + 1);
                     char *command_addr = (char*)(desc.command);
                     foreach (i, (W64s)desc.length) {
-                        command_str[i] = (char)ldub_kernel(
-                                (target_ulong)(command_addr));
+                        command_str[i] = (char)cpu_ldub_kernel(
+                                cpu, (target_ulong)(command_addr));
                         command_addr++;
                     }
                     command_str[desc.length] = '\0';
 
                     command << command_str << " ";
-
-                    qemu_free(command_str);
+                    g_free(command_str);
                 }
 
 
                 ptl_logfile << "Command received: " << command << endl << flush;
-                pending_command_str = (char*)qemu_malloc(command.size() * sizeof(char));
+                pending_command_str = (char*)g_malloc(command.size() * sizeof(char));
                 strcpy(pending_command_str, command.buf);
                 pending_call_type = PTLCALL_ENQUEUE;
                 simulation_configured = 1;
@@ -171,25 +178,26 @@ static void ptlcall_mmio_write(CPUX86State* cpu, W64 offset, W64 value,
                  * Stop the QEMU vm and change ptlsim configuration
                  * QEMU will be automatically started in simulation mode
                  */
-                cpu_exit(cpu);
+                cpu_exit(ENV_GET_CPU(cpu));
                 break;
             }
         case PTLCALL_CHECKPOINT:
             {
                 if (!config.quiet) cout << "PTLCALL type PTLCALL_CHECKPOINT\n";
 
-                char *checkpoint_name = (char*)qemu_malloc(arg2 + 1);
+                char *checkpoint_name = (char*)g_malloc(arg2 + 1);
                 char *name_addr = (char*)(arg1);
                 foreach (i, (W64s)arg2) {
-                    checkpoint_name[i] = (char)ldub_kernel(
-                            (target_ulong)(name_addr++));
+                    checkpoint_name[i] = (char)cpu_ldub_kernel(
+                            cpu, (target_ulong)(name_addr++));
                 }
                 checkpoint_name[arg2] = '\0';
 
                 vm_stop(0);
 
-                if (cpu_single_env)
-                    cpu_exit(cpu_single_env);
+                // TODO/FIXME: why cpu_single_env?
+                //if (cpu)
+                //    cpu_exit(cpu);
 
                 if(arg3 != PTLCALL_CHECKPOINT_DUMMY) {
 
@@ -241,7 +249,7 @@ static void ptlcall_mmio_write(CPUX86State* cpu, W64 offset, W64 value,
                 char tmp;
 
                 foreach (i, (int)size) {
-                    tmp = (char)ldub_kernel((target_ulong)(log_ptr));
+                    tmp = (char)cpu_ldub_kernel(cpu, (target_ulong)(log_ptr));
                     vm_log.buf[i] = tmp;
                     log_ptr++;
                 }
@@ -256,61 +264,36 @@ static void ptlcall_mmio_write(CPUX86State* cpu, W64 offset, W64 value,
     }
 }
 
-static uint32_t ptlcall_mmio_read(CPUX86State* cpu, W64 offset, int length) {
-    return 0;
+// C++ (and g++) do not support the non-trivial
+// initializers that we need to define this, so
+// we just declare it here and define in qemu.
+extern "C" {
+const extern MemoryRegionOps ptlsim_mmio_ops;
+
+uint64_t ptlsim_mmio_read(void *opaque, hwaddr addr, unsigned size) {
+  return 0;
 }
 
-static uint32_t ptlcall_mmio_readb(void *opaque, target_phys_addr_t addr) {
-    return ptlcall_mmio_read(cpu_single_env, addr, 1);
+void ptlsim_mmio_write(void *opaque, hwaddr addr, uint64_t data, unsigned size) {
+  ptlcall_mmio_write(opaque, addr, data, size);
 }
 
-static uint32_t ptlcall_mmio_readw(void *opaque, target_phys_addr_t addr) {
-    return ptlcall_mmio_read(cpu_single_env, addr, 2);
 }
-
-static uint32_t ptlcall_mmio_readl(void *opaque, target_phys_addr_t addr) {
-    return ptlcall_mmio_read(cpu_single_env, addr, 4);
-}
-
-static void ptlcall_mmio_writeb(void *opaque, target_phys_addr_t addr,
-        uint32_t value) {
-    ptlcall_mmio_write(cpu_single_env, addr, value, 1);
-}
-
-static void ptlcall_mmio_writew(void *opaque, target_phys_addr_t addr,
-        uint32_t value) {
-    ptlcall_mmio_write(cpu_single_env, addr, value, 2);
-}
-
-static void ptlcall_mmio_writel(void *opaque, target_phys_addr_t addr,
-        uint32_t value) {
-    ptlcall_mmio_write(cpu_single_env, addr, value, 4);
-}
-
-static CPUReadMemoryFunc* ptlcall_mmio_read_ops[] = {
-    ptlcall_mmio_readb,
-    ptlcall_mmio_readw,
-    ptlcall_mmio_readl,
-};
-
-static CPUWriteMemoryFunc* ptlcall_mmio_write_ops[] = {
-    ptlcall_mmio_writeb,
-    ptlcall_mmio_writew,
-    ptlcall_mmio_writel,
-};
 
 void dump_all_info();
 void dump_bbcache_to_logfile();
 
 void ptlsim_init() {
+    MemoryRegion *ptlsim_mmio = g_malloc(sizeof(*ptlsim_mmio));
 
-    /* Register PTLsim PTLCALL mmio page */
-    W64 ptlcall_mmio_pd = cpu_register_io_memory(ptlcall_mmio_read_ops,
-            ptlcall_mmio_write_ops, NULL, DEVICE_NATIVE_ENDIAN);
-    cpu_register_physical_memory(PTLSIM_PTLCALL_MMIO_PAGE_PHYSADDR, 4096,
-            ptlcall_mmio_pd);
+    /* Map the PTLsim MMIO space into memory for PTLcalls. */
+    memory_region_init_io(ptlsim_mmio, NULL, &ptlsim_mmio_ops,
+        &contextof(0), "ptlsim", 4096);
 
-    /* Register ptlsim assert callback functions */
+    memory_region_add_subregion(get_system_memory(),
+      PTLSIM_PTLCALL_MMIO_PAGE_PHYSADDR, ptlsim_mmio);
+
+    /* Register ptlsim assert callback functions. */
     register_assert_cb(&dump_all_info);
     register_assert_cb(&dump_bbcache_to_logfile);
 }
@@ -523,7 +506,7 @@ W64 Context::virt_to_pte_phys_addr(W64 rawvirt, byte& level) {
 
             assert(level < 4);
 
-            pdpe_addr = ((env->cr[3] & ~0x1f) + ((rawvirt >> 27) & 0x18)) & a20_mask;
+            pdpe_addr = ((this->cr[3] & ~0x1f) + ((rawvirt >> 27) & 0x18)) & a20_mask;
 
             if(level == 3) {
                 ret_addr = pdpe_addr;
@@ -568,7 +551,7 @@ W64 Context::virt_to_pte_phys_addr(W64 rawvirt, byte& level) {
 
         assert(level < 3);
 
-        pde_addr = ((cr[3] & ~0xfff) + ((rawvirt >> 20) & 0xffc)) & env->a20_mask;
+        pde_addr = ((cr[3] & ~0xfff) + ((rawvirt >> 20) & 0xffc)) & this->a20_mask;
 
         if(level == 2) {
             ret_addr = pde_addr;
@@ -626,9 +609,9 @@ int Context::copy_from_vm(void* target, Waddr source, int bytes, PageFaultErrorC
     if (exception) {
         cr2 = cr[2];
         int old_exception = exception_index;
-        int mmu_index = cpu_mmu_index((CPUState*)this);
-        int fail = cpu_x86_handle_mmu_fault((CPUX86State*)this,
-                source, 2, mmu_index, 1);
+        int mmu_index = cpu_mmu_index(this);
+        int fail = cpu_x86_handle_mmu_fault(this,
+                source, 2, mmu_index);
         cr[2] = cr2;
         if(logable(10))
             ptl_logfile << "page fault while reading code fault:", fail,
@@ -638,6 +621,7 @@ int Context::copy_from_vm(void* target, Waddr source, int bytes, PageFaultErrorC
             if(logable(10))
                 ptl_logfile << "Unable to read code from ",
                             hexstring(source, 64), endl;
+
             setup_ptlsim_switch_all_ctx(*this);
             /*
              * restore the exception index as it will be
@@ -657,12 +641,12 @@ int Context::copy_from_vm(void* target, Waddr source, int bytes, PageFaultErrorC
     byte* target_b = (byte*)(target);
     while(n < bytes_frm_first_page) {
         char data;
-        if(forexec) data = ldub_code(source_b);
-        else if(kernel_mode) data = ldub_kernel(source_b);
-        else data = ldub_user(source_b);
+        if(forexec) data = cpu_ldub_code(this, source_b);
+        else if(kernel_mode) data = cpu_ldub_kernel(this, source_b);
+        else data = cpu_ldub_user(this, source_b);
         if(logable(109)) {
             ptl_logfile << "[", hexstring((W8)(data), 8),
-                        "-", hexstring((W8)(ldub_code(source_b)), 8),
+                        "-", hexstring((W8)(cpu_ldub_code(this, source_b)), 8),
                         "@", (void*)(source_b), "] ";
         }
         target_b[n] = data;
@@ -681,9 +665,9 @@ int Context::copy_from_vm(void* target, Waddr source, int bytes, PageFaultErrorC
     if (exception) {
         cr2 = cr[2];
         int old_exception = exception_index;
-        int mmu_index = cpu_mmu_index((CPUState*)this);
-        int fail = cpu_x86_handle_mmu_fault((CPUX86State*)this,
-                source + n, 2, mmu_index, 1);
+        int mmu_index = cpu_mmu_index(this);
+        int fail = cpu_x86_handle_mmu_fault(this,
+                source + n, 2, mmu_index);
         cr[2] = cr2;
         if(logable(10))
             ptl_logfile << "page fault while reading code fault:", fail,
@@ -709,12 +693,12 @@ int Context::copy_from_vm(void* target, Waddr source, int bytes, PageFaultErrorC
 
     while(n < bytes) {
         char data;
-        if(forexec) data = ldub_code(source_b);
-        else if(kernel_mode) data = ldub_kernel(source_b);
-        else data = ldub_user(source_b);
+        if(forexec) data = cpu_ldub_code(this, source_b);
+        else if(kernel_mode) data = cpu_ldub_kernel(this, source_b);
+        else data = cpu_ldub_user(this, source_b);
         if(logable(109)) {
             ptl_logfile << "[", hexstring((W8)(data), 8),
-                        "-", hexstring((W8)(ldub_code(source_b)), 8),
+                        "-", hexstring((W8)(cpu_ldub_code(this, source_b)), 8),
                         "@", (void*)(source_b), "] ";
         }
         target_b[n] = data;
@@ -745,9 +729,12 @@ void Context::update_mode(bool is_kernel) {
     }
 }
 
+extern "C" {
+extern ram_addr_t ram_size;
+}
 
 Waddr Context::check_and_translate(Waddr virtaddr, int sizeshift, bool store, bool internal, int& exception, int& mmio, PageFaultErrorCode& pfec, bool is_code) {
-
+    uint64_t qemu_ram_size = ram_size;
     exception = 0;
     pfec = 0;
 
@@ -765,7 +752,7 @@ Waddr Context::check_and_translate(Waddr virtaddr, int sizeshift, bool store, bo
 
     Waddr paddr;
 
-    int mmu_index = cpu_mmu_index((CPUState*)this);
+    int mmu_index = cpu_mmu_index(this);
     int index = (virtaddr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
     W64 tlb_addr;
 
@@ -836,7 +823,7 @@ Waddr Context::check_and_translate(Waddr virtaddr, int sizeshift, bool store, bo
 
 bool Context::is_mmio_addr(Waddr virtaddr, bool store) {
 
-    int mmu_index = cpu_mmu_index((CPUState*)this);
+    int mmu_index = cpu_mmu_index(this);
     int index = (virtaddr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
     W64 tlb_addr;
 
@@ -871,7 +858,7 @@ bool Context::is_mmio_addr(Waddr virtaddr, bool store) {
 }
 
 bool Context::has_page_fault(Waddr virtaddr, int store) {
-    int mmu_index = cpu_mmu_index((CPUState*)this);
+    int mmu_index = cpu_mmu_index(this);
     int index = (virtaddr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
     W64 tlb_addr;
 
@@ -937,9 +924,9 @@ void Context::propagate_x86_exception(byte exception, W32 errorcode , Waddr virt
     ptl_stable_state = 1;
     handle_interrupt = 1;
     if(errorcode) {
-        raise_exception_err((int)exception, (int)errorcode);
+        raise_exception_err(this, (int)exception, (int)errorcode);
     } else {
-        raise_exception((int)exception);
+        raise_exception(this, (int)exception);
     }
     ptl_stable_state = 0;
     setup_ptlsim_switch_all_ctx(*this);
@@ -956,42 +943,42 @@ W64 Context::loadvirt(Waddr virtaddr, int sizeshift) {
     if likely (!kernel_mode && !mmio) {
         switch(sizeshift) {
             case 0: {
-                        W8 d = ldub_user(virtaddr);
+                        W8 d = cpu_ldub_user(this,virtaddr);
                         data = (W64)d;
                         break;
                     }
             case 1: {
-                        W16 d = lduw_user(virtaddr);
+                        W16 d = cpu_lduw_user(this,virtaddr);
                         data = (W64)d;
                         break;
                     }
             case 2: {
-                        W32 d = ldl_user(virtaddr);
+                        W32 d = cpu_ldl_user(this,virtaddr);
                         data = (W64)d;
                         break;
                     }
             default:
-                    data = ldq_user(virtaddr);
+                    data = cpu_ldq_user(this,virtaddr);
         }
     } else {
         switch(sizeshift) {
             case 0: {
-                        W8 d = ldub_kernel(virtaddr);
+                        W8 d = cpu_ldub_kernel(this,virtaddr);
                         data = (W64)d;
                         break;
                     }
             case 1: {
-                        W16 d = lduw_kernel(virtaddr);
+                        W16 d = cpu_lduw_kernel(this,virtaddr);
                         data = (W64)d;
                         break;
                     }
             case 2: {
-                        W32 d = ldl_kernel(virtaddr);
+                        W32 d = cpu_ldl_kernel(this,virtaddr);
                         data = (W64)d;
                         break;
                     }
             default:
-                    data = ldq_kernel(virtaddr);
+                    data = cpu_ldq_kernel(this,virtaddr);
         }
     }
 
@@ -1072,19 +1059,19 @@ W64 Context::storemask_virt(Waddr virtaddr, W64 data, byte bytemask, int sizeshi
     if(is_mmio_addr(virtaddr, 1)) {
         switch(sizeshift) {
             case 0: {
-                        stb_kernel(virtaddr, (W8)data);
+                        cpu_stb_kernel(this, virtaddr, (W8)data);
                         break;
                     }
             case 1: {
-                        stw_kernel(virtaddr, (W16)data);
+                        cpu_stw_kernel(this, virtaddr, (W16)data);
                         break;
                     }
             case 2: {
-                        stl_kernel(virtaddr, (W32)data);
+                        cpu_stl_kernel(this, virtaddr, (W32)data);
                         break;
                     }
             default:
-                    stq_kernel(virtaddr, data);
+                    cpu_stq_kernel(this, virtaddr, data);
         }
         if(logable(10))
             ptl_logfile << "MMIO WRITE addr: ", hexstring(virtaddr, 64),
@@ -1095,21 +1082,21 @@ W64 Context::storemask_virt(Waddr virtaddr, W64 data, byte bytemask, int sizeshi
 
     switch(sizeshift) {
         case 0: // byte write
-            (kernel_mode) ? stb_kernel(virtaddr, data) :
-                stb_user(virtaddr, data);
+            (kernel_mode) ? cpu_stb_kernel(this, virtaddr, data) :
+                cpu_stb_user(this, virtaddr, data);
             break;
         case 1: // word write
-            (kernel_mode) ? stw_kernel(virtaddr, data) :
-                stw_user(virtaddr, data);
+            (kernel_mode) ? cpu_stw_kernel(this, virtaddr, data) :
+                cpu_stw_user(this, virtaddr, data);
             break;
         case 2: // double word write
-            (kernel_mode) ? stl_kernel(virtaddr, data) :
-                stl_user(virtaddr, data);
+            (kernel_mode) ? cpu_stl_kernel(this, virtaddr, data) :
+                cpu_stl_user(this, virtaddr, data);
             break;
         case 3: // quad word write
         default:
-            (kernel_mode) ? stq_kernel(virtaddr, data) :
-                stq_user(virtaddr, data);
+            (kernel_mode) ? cpu_stq_kernel(this, virtaddr, data) :
+                cpu_stq_user(this, virtaddr, data);
             break;
     }
     if(logable(10))
@@ -1120,21 +1107,21 @@ W64 Context::storemask_virt(Waddr virtaddr, W64 data, byte bytemask, int sizeshi
     W64 data_r = 0;
     switch(sizeshift) {
         case 0: // byte write
-            (kernel_mode) ? data_r = (W64)ldub_kernel(virtaddr) :
-                data_r = (W64)ldub_user(virtaddr);
+            (kernel_mode) ? data_r = (W64)cpu_ldub_kernel(this, virtaddr) :
+                data_r = (W64)cpu_ldub_user(this, virtaddr);
             break;
         case 1: // word write
-            (kernel_mode) ? data_r = (W64)lduw_kernel(virtaddr) :
-                data_r = (W64)lduw_user(virtaddr);
+            (kernel_mode) ? data_r = (W64)cpu_lduw_kernel(this, virtaddr) :
+                data_r = (W64)cpu_lduw_user(this, virtaddr);
             break;
         case 2: // double word write
-            (kernel_mode) ? data_r = (W64)ldul_kernel(virtaddr) :
-                data_r = (W64)ldul_user(virtaddr);
+            (kernel_mode) ? data_r = (W64)cpu_ldl_kernel(this, virtaddr) :
+                data_r = (W64)cpu_ldul_user(this, virtaddr);
             break;
         case 3: // quad word write
         default:
-            (kernel_mode) ? data_r = (W64)ldq_kernel(virtaddr) :
-                data_r = (W64)ldq_user(virtaddr);
+            (kernel_mode) ? data_r = (W64)cpu_ldq_kernel(this, virtaddr) :
+                data_r = (W64)cpu_ldq_user(this, virtaddr);
             break;
     }
     if((W64)data != data_r) {
@@ -1153,27 +1140,27 @@ void Context::check_store_virt(Waddr virtaddr, W64 data, byte bytemask, int size
     W64 mask = 0;
     switch(sizeshift) {
         case 0: // byte write
-            (kernel_mode) ? data_r = (W64)ldub_kernel(virtaddr) :
-                data_r = (W64)ldub_user(virtaddr);
+            (kernel_mode) ? data_r = (W64)cpu_ldub_kernel(this, virtaddr) :
+                data_r = (W64)cpu_ldub_user(this, virtaddr);
 	    mask = 0xff;
             //data = signext64(data, 8);
             break;
         case 1: // word write
-            (kernel_mode) ? data_r = (W64)lduw_kernel(virtaddr) :
-                data_r = signext64((W64)lduw_user(virtaddr), 16);
+            (kernel_mode) ? data_r = (W64)cpu_lduw_kernel(this, virtaddr) :
+                data_r = signext64((W64)cpu_lduw_user(this, virtaddr), 16);
 	    mask = 0xffff;
             //data = signext64(data, 16);
             break;
         case 2: // double word write
-            (kernel_mode) ? data_r = (W64)ldul_kernel(virtaddr) :
-                data_r = signext64((W64)ldul_user(virtaddr), 32);
+            (kernel_mode) ? data_r = (W64)cpu_ldl_kernel(this, virtaddr) :
+                data_r = signext64((W64)cpu_ldl_user(this, virtaddr), 32);
 	    mask = 0xffffffff;
             //data = signext64(data, 32);
             break;
         case 3: // quad word write
         default:
-            (kernel_mode) ? data_r = (W64)ldq_kernel(virtaddr) :
-                data_r = (W64)ldq_user(virtaddr);
+            (kernel_mode) ? data_r = (W64)cpu_ldq_kernel(this, virtaddr) :
+                data_r = (W64)cpu_ldq_user(this, virtaddr);
 	    mask = (W64)-1;
             break;
     }
@@ -1238,9 +1225,9 @@ void Context::handle_page_fault(Waddr virtaddr, int is_write) {
     exception_is_int = 0;
     ptl_stable_state = 1;
     handle_interrupt = 1;
-    int mmu_index = cpu_mmu_index((CPUState*)this);
+    int mmu_index = cpu_mmu_index(this);
     W64 cr2 = cr[2];
-    tlb_fill(virtaddr, is_write, mmu_index, NULL);
+    tlb_fill(this, virtaddr, is_write, mmu_index, 0);
     ptl_stable_state = 0;
 
     if(kernel_mode) {
@@ -1262,8 +1249,8 @@ bool Context::try_handle_fault(Waddr virtaddr, int store) {
         ptl_logfile << "Trying to fill tlb for addr: ", (void*)virtaddr, endl;
 
     W64 cr2 = cr[2];
-    int mmu_index = cpu_mmu_index((CPUState*)this);
-    int fault = cpu_x86_handle_mmu_fault((CPUState*)this, virtaddr, store, mmu_index, 1);
+    int mmu_index = cpu_mmu_index(this);
+    int fault = cpu_x86_handle_mmu_fault(this, virtaddr, store, mmu_index);
 
     cr[2] = cr2;
 
@@ -1286,7 +1273,7 @@ bool Context::try_handle_fault(Waddr virtaddr, int store) {
 
 extern "C" void ptl_add_phys_memory_mapping(int8_t cpu_index, uint64_t host_vaddr, uint64_t guest_paddr)
 {
-  contextof(cpu_index).hvirt_gphys_map[(Waddr)host_vaddr] = (Waddr)guest_paddr;
+  hvirt_gphys_maps[cpu_index][(Waddr)host_vaddr] = (Waddr)guest_paddr;
 }
 
 void ptl_quit()
@@ -1421,7 +1408,7 @@ void set_next_simpoint(CPUX86State* ctx)
     tb_flush(ctx);
 
     if (ctx->simpoint_decr == 0 && get_simpoint(simpoint_ctr) == 0) {
-        ptl_simpoint_reached(ctx->cpu_index);
+        ptl_simpoint_reached(ENV_GET_CPU(ctx)->cpu_index);
     }
 }
 
@@ -1500,13 +1487,13 @@ static void adjust_fwd_insts(Context& ctx)
     Context* min_ctx = NULL;
 
     foreach (i, NUM_SIM_CORES) {
-        if (i == ctx.cpu_index)
+        if (i == ENV_GET_CPU(&ctx)->cpu_index)
             continue;
 
         Context& t_ctx = contextof(i);
 
-		if (t_ctx.halted && !qemu_cpu_has_work(&t_ctx) &&
-				!t_ctx.stopped && t_ctx.simpoint_decr > 0) {
+		if (ENV_GET_CPU(&t_ctx)->halted && !qemu_cpu_has_work(ENV_GET_CPU(&t_ctx)) &&
+				!ENV_GET_CPU(&t_ctx)->stopped && t_ctx.simpoint_decr > 0) {
             min_remaining = min((W64)t_ctx.simpoint_decr, min_remaining);
             if (min_remaining == t_ctx.simpoint_decr)
                 min_ctx = &contextof(i);
@@ -1521,9 +1508,9 @@ static void adjust_fwd_insts(Context& ctx)
         ctx.simpoint_decr = min_remaining;
 
         if (logable(2)) {
-            ptl_logfile << "Min ctx " << int(min_ctx->cpu_index) <<
+            ptl_logfile << "Min ctx " << int(ENV_GET_CPU(min_ctx)->cpu_index) <<
                 " allocated " << min_remaining << " instructions to " <<
-                int(ctx.cpu_index) << " CPU\n";
+                int(ENV_GET_CPU(&ctx)->cpu_index) << " CPU\n";
         }
     } else {
         /* We can't find any CPU Context with remaining
@@ -1545,18 +1532,18 @@ static void cpu_fast_fwded(Context& ctx)
     W64 insns_remaining = 0;
 
     /* Stop this CPU and check if all CPU are stopped or not */
-    ctx.stopped = 1;
+    ENV_GET_CPU(&ctx)->stopped = 1;
 
     /* Check if all other cpus are stopped or not */
     foreach (i, NUM_SIM_CORES) {
         Context& t_ctx = contextof(i);
         insns_remaining += t_ctx.simpoint_decr;
 
-        if (i != ctx.cpu_index)
-            others_halted |= (t_ctx.halted);
+        if (i != ENV_GET_CPU(&ctx)->cpu_index)
+            others_halted |= (ENV_GET_CPU(&t_ctx)->halted);
 
-		all_halted_or_stopped &= (t_ctx.stopped || t_ctx.halted ||
-				!qemu_cpu_has_work(&t_ctx));
+		all_halted_or_stopped &= (ENV_GET_CPU(&t_ctx)->stopped || ENV_GET_CPU(&t_ctx)->halted ||
+				!qemu_cpu_has_work(ENV_GET_CPU(&t_ctx)));
     }
 
     if (others_halted && insns_remaining > 100) {
@@ -1570,10 +1557,10 @@ static void cpu_fast_fwded(Context& ctx)
         /* If we found some more instructions to emulate then return */
         if (ctx.simpoint_decr) {
             if (logable(2)) {
-                ptl_logfile << "Cpu " << int(ctx.cpu_index) << " will emulate " <<
+                ptl_logfile << "Cpu " << int(ENV_GET_CPU(&ctx)->cpu_index) << " will emulate " <<
                     ctx.simpoint_decr << " instructions\n";
             }
-            ctx.stopped = 0;
+            ENV_GET_CPU(&ctx)->stopped = 0;
             return;
         }
     }
@@ -1601,7 +1588,7 @@ static void cpu_fast_fwded(Context& ctx)
         ptl_fast_fwd_enabled = 0;
 
         foreach (i, NUM_SIM_CORES) {
-            contextof(i).stopped = 0;
+            ENV_GET_CPU(&contextof(i))->stopped = 0;
             tb_flush(&contextof(i));
         }
 

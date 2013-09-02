@@ -12,10 +12,41 @@
 #ifndef _PTLHWDEF_H
 #define _PTLHWDEF_H
 
+// qemu is pure C, so silence some ptr cast warnings.
+#pragma GCC diagnostic ignored "-fpermissive"
+
 extern "C" {
+#define class __class
+#define typename __typename
 #include <cpu.h>
+#include <include/exec/cpu-common.h>
+#include <include/exec/exec-all.h>
+#include <include/exec/memory.h>
+#include <include/exec/memory-internal.h>
+#undef class
+#undef typename
+
+MemoryRegion *qemu_ram_addr_from_host(void *ptr, ram_addr_t *ram_addr);
+
+static inline ram_addr_t qemu_ram_addr_from_host_nofail(void *ptr)
+{
+    ram_addr_t ram_addr;
+
+    if (qemu_ram_addr_from_host(ptr, &ram_addr) == NULL) {
+        fprintf(stderr, "Bad ram pointer %p\n", ptr);
+        abort();
+    }
+    return ram_addr;
+}
+
+static inline void tlb_protect_code(ram_addr_t ram_addr)
+{
+    cpu_physical_memory_reset_dirty(ram_addr,
+                                    ram_addr + TARGET_PAGE_SIZE,
+                                    CODE_DIRTY_FLAG);
+}
+
 #define CPU_NO_GLOBAL_REGS
-#include <exec.h>
 }
 
 // for virtual -> physical address mapping
@@ -799,8 +830,9 @@ enum {
 	CONTEXT_RUNNING = 1,
 };
 
-struct Context: public CPUX86State {
+static map<Waddr, Waddr> hvirt_gphys_maps[NUM_SIM_CORES];
 
+struct Context: public CPUX86State {
   bool use32;
   bool use64;
   bool kernel_mode;
@@ -829,8 +861,6 @@ struct Context: public CPUX86State {
   W64 reg_fpstack;
   W64 page_fault_addr;
   W64 exec_fault_addr;
-  map<Waddr, Waddr> hvirt_gphys_map;
-
 
   void change_runstate(int new_state) { running = new_state; }
 
@@ -847,7 +877,6 @@ struct Context: public CPUX86State {
   void setup_qemu_switch() {
 	  old_eip = eip;
 	  set_eip_qemu();
-	  set_cpu_env((CPUX86State*)this);
 	  W64 flags = reg_flags;
 	  // Set the 2nd bit to 1 for compatibility
 	  flags = (flags | FLAG_INV);
@@ -861,8 +890,6 @@ struct Context: public CPUX86State {
   }
 
   void setup_ptlsim_switch() {
-
-	  set_cpu_env((CPUX86State*)this);
 	  // W64 flags = compute_eflags();
 
 	  // Clear the 2nd and 3rd bit as its used by PTLSim to indicate if
@@ -914,6 +941,7 @@ struct Context: public CPUX86State {
 
   int get_phys_memory_address(Waddr host_vaddr, Waddr &guest_paddr)
   {
+    map<Waddr, Waddr>& hvirt_gphys_map = hvirt_gphys_maps[ENV_GET_CPU(this)->cpu_index];
     map<Waddr, Waddr>::iterator it;
     if ((it = hvirt_gphys_map.find(host_vaddr & TARGET_PAGE_MASK)) == hvirt_gphys_map.end())
     {
@@ -947,7 +975,7 @@ struct Context: public CPUX86State {
 		  return false;
 	  }
 
-	  target_ulong ram_addr;
+	  ram_addr_t ram_addr;
 	  ram_addr = (tlb_addr & TARGET_PAGE_MASK) + tlb_entry->addend;
       ram_addr = qemu_ram_addr_from_host_nofail((void*)ram_addr);
 		  // (unsigned long)(phys_ram_base);
@@ -971,7 +999,7 @@ struct Context: public CPUX86State {
 		  return ;
 	  }
 
-	  target_ulong ram_addr;
+	  ram_addr_t ram_addr;
 	  ram_addr = (tlb_addr & TARGET_PAGE_MASK) + tlb_entry->addend;
       ram_addr = qemu_ram_addr_from_host_nofail((void*)ram_addr);
 		  // (unsigned long)(phys_ram_base);

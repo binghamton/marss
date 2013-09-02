@@ -54,7 +54,7 @@ namespace {
         foreach(i, NUM_SIM_CORES) {
             Context& ctx = base_machine->get_next_context();
             ASSERT_TRUE(&ctx) << "No context " << i << " found";
-            ASSERT_EQ(ctx.cpu_index, i);
+            ASSERT_EQ(ENV_GET_CPU(&ctx)->cpu_index, i);
         }
     }
 

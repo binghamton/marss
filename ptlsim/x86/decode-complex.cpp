@@ -12,8 +12,13 @@
 extern "C" {
 #include <helper.h>
 #include <cpu.h>
-#include <ioport.h>
+#include <exec/ioport.h>
 }
+
+void helper_syscall(CPUX86State *env, int next_eip_addend);
+void helper_sysret(CPUX86State *env, int dflag);
+void helper_enter64_level(CPUX86State *env, int level,
+  int data64, target_ulong t1);
 
 template <typename T> bool assist_div(Context& ctx) {
   Waddr rax = ctx.regs[R_EAX]; Waddr rdx = ctx.regs[R_EDX];
@@ -59,7 +64,7 @@ bool assist_int(Context& ctx) {
 bool assist_syscall(Context& ctx) {
 
 	ctx.eip = ctx.reg_selfrip;
-	ASSIST_IN_QEMU(helper_syscall, ctx.reg_nextrip - ctx.reg_selfrip);
+	ASSIST_IN_QEMU(helper_syscall, &ctx, ctx.reg_nextrip - ctx.reg_selfrip);
 
   // REG_rip is filled out for us
   return true;
@@ -68,7 +73,7 @@ bool assist_syscall(Context& ctx) {
 bool assist_sysret(Context& ctx) {
 	ctx.eip = ctx.reg_selfrip;
     int dflag = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_sysret, dflag);
+	ASSIST_IN_QEMU(helper_sysret, &ctx, dflag);
 
 	return true;
 }
@@ -85,7 +90,7 @@ bool assist_ptlcall(Context& ctx) {
 }
 
 bool assist_sysenter(Context& ctx) {
-	ASSIST_IN_QEMU(helper_sysenter);
+	ASSIST_IN_QEMU(helper_sysenter, &ctx);
 	return true;
 }
 
@@ -217,13 +222,13 @@ union ProcessorMiscInfo {
   (0 << 24)) /* APIC ID (must be patched later!) */
 
 bool assist_cpuid(Context& ctx) {
-	ASSIST_IN_QEMU(helper_cpuid);
+	ASSIST_IN_QEMU(helper_cpuid, &ctx);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }
 
 bool assist_sti(Context& ctx) {
-	ASSIST_IN_QEMU(helper_sti);
+	ASSIST_IN_QEMU(helper_sti, &ctx);
 	ctx.eip = ctx.reg_nextrip;
 	return false;
 }
@@ -237,16 +242,16 @@ W64 l_assist_sti(Context& ctx, W64 ra, W64 rb, W64 rc, W16 raflags,
 
 	// Update in QEMU's flags
     ctx.setup_qemu_switch();
-    helper_sti();
+    helper_sti(&ctx);
     ctx.setup_ptlsim_switch();
 
-	if(logable(4)) ptl_logfile << "[cpu ", ctx.cpu_index, "]sti called rip ", (void*)ctx.eip, endl;
+	if(logable(4)) ptl_logfile << "[cpu ", ENV_GET_CPU(&ctx)->cpu_index, "]sti called rip ", (void*)ctx.eip, endl;
 
 	return 0;
 }
 
 bool assist_cli(Context& ctx) {
-	ASSIST_IN_QEMU(helper_cli);
+	ASSIST_IN_QEMU(helper_cli, &ctx);
 	ctx.eip = ctx.reg_nextrip;
 	return false;
 }
@@ -260,10 +265,10 @@ W64 l_assist_cli(Context& ctx, W64 ra, W64 rb, W64 rc, W16 raflags,
 
 	// Update in QEMU's flags
     ctx.setup_qemu_switch();
-    helper_cli();
+    helper_cli(&ctx);
     ctx.setup_ptlsim_switch();
 
-	if(logable(4)) ptl_logfile << "[cpu ", ctx.cpu_index, "]cli called at rip ", (void*)ctx.eip, endl;
+	if(logable(4)) ptl_logfile << "[cpu ", ENV_GET_CPU(&ctx)->cpu_index, "]cli called at rip ", (void*)ctx.eip, endl;
 
 	return 0;
 }
@@ -283,7 +288,7 @@ bool assist_enter(Context& ctx) {
     if(level) {
         // FIXME : We assume that we are always operating in 64 bit mode
         // in future if we need 32 bit or 16 bit mode, change this part of code
-        ASSIST_IN_QEMU(helper_enter64_level, level, 1, tmp1);
+        ASSIST_IN_QEMU(helper_enter64_level, &ctx, level, 1, tmp1);
     }
 
     ctx.regs[REG_rbp] = tmp1;
@@ -312,7 +317,7 @@ bool assist_ljmp_prct(Context& ctx) {
 	W32 next_eip_addend = ctx.reg_nextrip - ctx.reg_selfrip;
 	ptl_logfile << "assit_ljmp_prct: csbase: ", ctx.reg_ar1,
 				" eip: ", ctx.reg_ar2, endl;
-	ASSIST_IN_QEMU(helper_ljmp_protected, new_cs, new_eip,
+	ASSIST_IN_QEMU(helper_ljmp_protected, &ctx, new_cs, new_eip,
 			next_eip_addend);
 	ctx.cs_segment_updated();
 	return true;
@@ -334,7 +339,7 @@ bool assist_ljmp(Context& ctx) {
 
 // BCD Assist
 bool assist_bcd_aas(Context& ctx) {
-	ASSIST_IN_QEMU(helper_aas);
+	ASSIST_IN_QEMU(helper_aas, &ctx);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -343,7 +348,7 @@ bool assist_bcd_aas(Context& ctx) {
 bool assist_svm_check(Context& ctx) {
 	W64 type = ctx.reg_ar1;
 	W64 param = ctx.reg_ar2;
-	ASSIST_IN_QEMU(helper_svm_check_intercept_param, type, param);
+	ASSIST_IN_QEMU(helper_svm_check_intercept_param, &ctx, type, param);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -351,7 +356,7 @@ bool assist_svm_check(Context& ctx) {
 // MWait Assist
 bool assist_mwait(Context& ctx) {
 	W64 next_eip = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_mwait, next_eip);
+	ASSIST_IN_QEMU(helper_mwait, &ctx, next_eip);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -359,7 +364,7 @@ bool assist_mwait(Context& ctx) {
 // Monitor assist
 bool assist_monitor(Context& ctx) {
 	W64 ptr = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_monitor, ptr);
+	ASSIST_IN_QEMU(helper_monitor, &ctx, ptr);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -368,14 +373,14 @@ bool assist_monitor(Context& ctx) {
 bool assist_vmrun(Context& ctx) {
 	W64 aflag = ctx.reg_ar1;
 	W64 next_eip = ctx.reg_ar2;
-	ASSIST_IN_QEMU(helper_vmrun, aflag, next_eip);
+	ASSIST_IN_QEMU(helper_vmrun, &ctx, aflag, next_eip);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
 
 // VMCall
 bool assist_vmcall(Context& ctx) {
-	ASSIST_IN_QEMU(helper_vmmcall);
+	ASSIST_IN_QEMU(helper_vmmcall, &ctx);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -383,7 +388,7 @@ bool assist_vmcall(Context& ctx) {
 // VMLoad
 bool assist_vmload(Context& ctx) {
 	W64 aflag = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_vmload, aflag);
+	ASSIST_IN_QEMU(helper_vmload, &ctx, aflag);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -391,28 +396,28 @@ bool assist_vmload(Context& ctx) {
 // VMSave
 bool assist_vmsave(Context& ctx) {
 	W64 aflag = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_vmsave, aflag);
+	ASSIST_IN_QEMU(helper_vmsave, &ctx, aflag);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
 
 // STGI
 bool assist_stgi(Context& ctx) {
-	ASSIST_IN_QEMU(helper_stgi);
+	ASSIST_IN_QEMU(helper_stgi, &ctx);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
 
 // CLGI
 bool assist_clgi(Context& ctx) {
-	ASSIST_IN_QEMU(helper_clgi);
+	ASSIST_IN_QEMU(helper_clgi, &ctx);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
 
 // SKINIT
 bool assist_skinit(Context& ctx) {
-	ASSIST_IN_QEMU(helper_skinit);
+	ASSIST_IN_QEMU(helper_skinit, &ctx);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -420,7 +425,7 @@ bool assist_skinit(Context& ctx) {
 // INVLPGA
 bool assist_invlpga(Context& ctx) {
 	W64 aflag = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_invlpga, aflag);
+	ASSIST_IN_QEMU(helper_invlpga, &ctx, aflag);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -428,7 +433,7 @@ bool assist_invlpga(Context& ctx) {
 // INVLPG
 bool assist_invlpg(Context& ctx) {
 	W64 addr = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_invlpg, addr);
+	ASSIST_IN_QEMU(helper_invlpg, &ctx, addr);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -436,7 +441,7 @@ bool assist_invlpg(Context& ctx) {
 // LMSW
 bool assist_lmsw(Context& ctx) {
 	W64 t0 = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_lmsw, t0);
+	ASSIST_IN_QEMU(helper_lmsw, &ctx, t0);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -444,7 +449,7 @@ bool assist_lmsw(Context& ctx) {
 // LLDT
 bool assist_lldt(Context& ctx) {
 	W32 ldt = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_lldt, ldt);
+	ASSIST_IN_QEMU(helper_lldt, &ctx, ldt);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -452,7 +457,7 @@ bool assist_lldt(Context& ctx) {
 // LTR
 bool assist_ltr(Context& ctx) {
 	W32 ltr = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_ltr, ltr);
+	ASSIST_IN_QEMU(helper_ltr, &ctx, ltr);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -460,7 +465,7 @@ bool assist_ltr(Context& ctx) {
 // VERR
 bool assist_verr(Context& ctx) {
 	W32 v = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_verr, v);
+	ASSIST_IN_QEMU(helper_verr, &ctx, v);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
@@ -468,14 +473,14 @@ bool assist_verr(Context& ctx) {
 // VERW
 bool assist_verw(Context& ctx) {
 	W32 v = ctx.reg_ar1;
-	ASSIST_IN_QEMU(helper_verw, v);
+	ASSIST_IN_QEMU(helper_verw, &ctx, v);
 	ctx.eip = ctx.reg_nextrip;
 	return true;
 }
 
 // CLTS
 bool assist_clts(Context& ctx) {
-	ASSIST_IN_QEMU(helper_clts);
+	ASSIST_IN_QEMU(helper_clts, &ctx);
 	// abort block because static cpu state changed
 	ctx.eip = ctx.reg_nextrip;
 	return true;
@@ -504,7 +509,7 @@ bool assist_barrier(Context& ctx) {
 // Halt
 bool assist_halt(Context& ctx) {
 	W64 next_eip = ctx.reg_nextrip - ctx.segs[R_CS].base;
-	ASSIST_IN_QEMU(helper_hlt, next_eip);
+	ASSIST_IN_QEMU(helper_hlt, &ctx, next_eip);
 	return true;
 }
 
@@ -516,7 +521,7 @@ bool assist_pause(Context& ctx) {
 
 // TODO : Convert RDTSC to Light Assist
 bool assist_rdtsc(Context& ctx) {
-    ASSIST_IN_QEMU(helper_rdtsc);
+    ASSIST_IN_QEMU(helper_rdtsc, &ctx);
     ctx.eip = ctx.reg_nextrip;
     return true;
 }
@@ -524,7 +529,7 @@ bool assist_rdtsc(Context& ctx) {
 bool assist_pushf(Context& ctx) {
 	setup_qemu_switch_except_ctx(ctx);
 	ctx.setup_qemu_switch();
-	W64 flags = helper_read_eflags();
+	W64 flags = helper_read_eflags(&ctx);
 	ctx.setup_ptlsim_switch();
 	// now push the flags on the stack
 	ctx.regs[R_ESP] -= 8;
@@ -538,7 +543,7 @@ W64 l_assist_pushf(Context& ctx, W64 ra, W64 rb, W64 rc, W16 raflags,
 
 	// RA contains the latest flags contains ZAPS, CF, OF and IF
 	ctx.setup_qemu_switch();
-	W64 stable_flags = helper_read_eflags();
+	W64 stable_flags = helper_read_eflags(&ctx);
 	ctx.setup_ptlsim_switch();
 
 	W64 flagmask = (setflags_to_x86_flags[7]);
@@ -547,7 +552,7 @@ W64 l_assist_pushf(Context& ctx, W64 ra, W64 rb, W64 rc, W16 raflags,
 	flags = (W16)ra;
 
 	if(logable(4))
-		ptl_logfile << "[cpu ", ctx.cpu_index, "]push stable_flags: ", hexstring(stable_flags, 64),
+		ptl_logfile << "[cpu ", ENV_GET_CPU(&ctx)->cpu_index, "]push stable_flags: ", hexstring(stable_flags, 64),
 					" flags: ", hexstring(flags, 16), " at rip: ",
 				   (void*)ctx.eip, " cycle: ", sim_cycle, endl;
 
@@ -566,7 +571,7 @@ bool assist_popf(Context& ctx) {
   } else {
 	  mask = (W32)(TF_MASK | AC_MASK | ID_MASK | NT_MASK | IF_MASK);
   }
-  ASSIST_IN_QEMU(helper_write_eflags, flags , mask);
+  ASSIST_IN_QEMU(helper_write_eflags, &ctx, flags, mask);
   ctx.eip = ctx.reg_nextrip;
 
   // Update internal flags too (only update non-standard flags in internal_flags_bits):
@@ -591,7 +596,7 @@ W64 l_assist_popf(Context& ctx, W64 ra, W64 rb, W64 rc, W16 raflags,
 	flags = (W16)(ra & flagmask);
 
     ctx.setup_qemu_switch();
-    helper_write_eflags(stable_flags, mask);
+    helper_write_eflags(&ctx, stable_flags, mask);
     ctx.setup_ptlsim_switch();
 
 	return stable_flags;
@@ -625,7 +630,7 @@ bool assist_write_segreg(Context& ctx) {
   W16 selector = ctx.reg_ar1;
   byte segid = ctx.reg_ar2;
 
-  ASSIST_IN_QEMU(helper_load_seg, segid , selector);
+  ASSIST_IN_QEMU(helper_load_seg, &ctx, segid , selector);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }
@@ -659,14 +664,14 @@ bool assist_ldmxcsr(Context& ctx) {
 
 bool assist_fxsave(Context& ctx) {
   Waddr target = ctx.reg_ar1;
-  ASSIST_IN_QEMU(helper_fxsave, target, 1);
+  ASSIST_IN_QEMU(helper_fxsave, &ctx, target, 1);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }
 
 bool assist_fxrstor(Context& ctx) {
   Waddr target = ctx.reg_ar1 & ctx.virt_addr_mask;
-  ASSIST_IN_QEMU(helper_fxrstor, target, 1);
+  ASSIST_IN_QEMU(helper_fxrstor, &ctx, target, 1);
   W32 mxcsr = ctx.mxcsr | MXCSR_EXCEPTION_DISABLE_MASK;
   mxcsr &= (0xffff);
   x86_set_mxcsr(mxcsr);
@@ -676,7 +681,7 @@ bool assist_fxrstor(Context& ctx) {
 
 bool assist_wrmsr(Context& ctx) {
   ctx.eip = ctx.reg_selfrip;
-  ASSIST_IN_QEMU(helper_wrmsr);
+  ASSIST_IN_QEMU(helper_wrmsr, &ctx);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }
@@ -684,35 +689,35 @@ bool assist_wrmsr(Context& ctx) {
 
 bool assist_rdmsr(Context& ctx) {
     ctx.eip = ctx.reg_selfrip;
-    ASSIST_IN_QEMU(helper_rdmsr);
+    ASSIST_IN_QEMU(helper_rdmsr, &ctx);
     ctx.eip = ctx.reg_nextrip;
     return true;
 }
 
 bool assist_write_cr0(Context& ctx) {
   ctx.eip = ctx.reg_selfrip;
-  ASSIST_IN_QEMU(helper_write_crN, 0, ctx.reg_ar1);
+  ASSIST_IN_QEMU(helper_write_crN, &ctx, 0, ctx.reg_ar1);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }
 
 bool assist_write_cr2(Context& ctx) {
   ctx.eip = ctx.reg_selfrip;
-  ASSIST_IN_QEMU(helper_write_crN, 2, ctx.reg_ar1);
+  ASSIST_IN_QEMU(helper_write_crN, &ctx, 2, ctx.reg_ar1);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }
 
 bool assist_write_cr3(Context& ctx) {
   ctx.eip = ctx.reg_selfrip;
-  ASSIST_IN_QEMU(helper_write_crN, 3, ctx.reg_ar1 & 0xfffffffffffff000ULL);
+  ASSIST_IN_QEMU(helper_write_crN, &ctx, 3, ctx.reg_ar1 & 0xfffffffffffff000ULL);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }
 
 bool assist_write_cr4(Context& ctx) {
   ctx.eip = ctx.reg_selfrip;
-  ASSIST_IN_QEMU(helper_write_crN, 4, ctx.reg_ar1);
+  ASSIST_IN_QEMU(helper_write_crN, &ctx, 4, ctx.reg_ar1);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }
@@ -733,15 +738,15 @@ bool assist_write_debug_reg(Context& ctx) {
 
   int i;
   if(regid < 4) {
-	  hw_breakpoint_remove(env, regid);
+	  hw_breakpoint_remove(&ctx, regid);
 	  ctx.dr[regid] = value;
-	  hw_breakpoint_insert(env, regid);
+	  hw_breakpoint_insert(&ctx, regid);
   } else if(regid == 7) {
 	  for (i = 0; i < 4; i++)
-		  hw_breakpoint_remove(env, i);
+		  hw_breakpoint_remove(&ctx, i);
 	  ctx.dr[7] = value;
 	  for (i = 0; i < 4; i++)
-		  hw_breakpoint_insert(env, i);
+		  hw_breakpoint_insert(&ctx, i);
   } else {
 	  ctx.dr[regid] = value;
   }
@@ -792,16 +797,16 @@ bool assist_iret64(Context& ctx) {
 
 	if(!pe) {
 		// Real mode interrupt
-		ASSIST_IN_QEMU(helper_iret_real, shift);
+		ASSIST_IN_QEMU(helper_iret_real, &ctx, shift);
 	} else if(vm86) {
 		if(!ctx.kernel_mode) {
 			assist_gp_fault(ctx);
 		} else {
-			ASSIST_IN_QEMU(helper_iret_real, shift);
+			ASSIST_IN_QEMU(helper_iret_real, &ctx, shift);
 		}
 	} else {
 		W64 eip = ctx.eip - ctx.segs[R_CS].base;
-		ASSIST_IN_QEMU(helper_iret_protected, shift, eip);
+		ASSIST_IN_QEMU(helper_iret_protected, &ctx, shift, eip);
 	}
 
 	return true;
@@ -944,7 +949,7 @@ W64 l_assist_popcnt(Context& ctx, W64 ra, W64 rb, W64 rc, W16 raflags,
     W64 sizeshift = rb;
     setup_qemu_switch_except_ctx(ctx);
     ctx.setup_qemu_switch();
-    helper_popcnt(ra,sizeshift);
+    helper_popcnt(&ctx, ra,sizeshift);
     setup_ptlsim_switch_all_ctx(ctx);
 
     return 0;
@@ -952,7 +957,7 @@ W64 l_assist_popcnt(Context& ctx, W64 ra, W64 rb, W64 rc, W16 raflags,
 
 bool assist_mmx_emms(Context& ctx) {
   ctx.eip = ctx.reg_selfrip;
-  ASSIST_IN_QEMU(helper_emms);
+  ASSIST_IN_QEMU(helper_emms, &ctx);
   ctx.eip = ctx.reg_nextrip;
   return true;
 }

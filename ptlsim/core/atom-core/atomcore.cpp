@@ -320,7 +320,7 @@ bool AtomOp::fetch()
 
             // SMP/SMT: Fill in with target thread ID (if the predictor
             // supports this):
-            predinfo.ctxid = thread->ctx.cpu_index;
+            predinfo.ctxid = ENV_GET_CPU(&thread->ctx)->cpu_index;
             predinfo.ripafter = fetchrip + op.bytes;
             predrip = thread->branchpred.predict(predinfo, predinfo.bptype,
                     predinfo.ripafter, op.riptaken);
@@ -1021,7 +1021,7 @@ W64 AtomOp::get_load_data(W64 addr, TransOp& uop)
 bool AtomOp::check_mem_lock(W64 addr)
 {
     return thread->core.memoryHierarchy->probe_lock(addr & ~(0x3),
-            thread->ctx.cpu_index);
+            ENV_GET_CPU(&thread->ctx)->cpu_index);
 }
 
 /**
@@ -1034,7 +1034,7 @@ bool AtomOp::check_mem_lock(W64 addr)
 bool AtomOp::grab_mem_lock(W64 addr)
 {
     lock_acquired = thread->core.memoryHierarchy->grab_lock(
-                addr & ~(0x3), thread->ctx.cpu_index);
+                addr & ~(0x3), ENV_GET_CPU(&thread->ctx)->cpu_index);
     lock_addr = addr;
     return lock_acquired;
 }
@@ -1052,7 +1052,7 @@ void AtomOp::release_mem_lock(bool immediately)
 {
     if (immediately) {
         thread->core.memoryHierarchy->invalidate_lock(lock_addr & ~(0x3),
-                thread->ctx.cpu_index);
+                ENV_GET_CPU(&thread->ctx)->cpu_index);
         lock_acquired = false;
     } else {
         thread->queued_mem_lock_list[
@@ -1390,7 +1390,7 @@ int AtomOp::writeback()
     ATOMOPLOG1("writeback/commit ", num_uops_used, " uops");
 
     if(config.checker_enabled && !thread->ctx.kernel_mode && som) {
-        setup_checker(thread->ctx.cpu_index);
+        setup_checker(ENV_GET_CPU(&thread->ctx)->cpu_index);
         reset_checker_stores();
     }
 
@@ -1578,7 +1578,7 @@ void AtomOp::update_checker()
         if(!is_barrier && thread->ctx.eip != rip) {
             execute_checker();
             TransOp& last_uop = uops[num_uops_used - 1];
-            compare_checker(thread->ctx.cpu_index,
+            compare_checker(ENV_GET_CPU(&thread->ctx)->cpu_index,
                     setflags_to_x86_flags[last_uop.setflags]);
 
             if(checker_context->eip) {
@@ -1722,7 +1722,7 @@ AtomThread::AtomThread(AtomCore& core, W8 threadid, Context& ctx)
     update_name(th_name.buf);
 
     // Set decoder stats
-    set_decoder_stats(this, ctx.cpu_index);
+    set_decoder_stats(this, ENV_GET_CPU(&ctx)->cpu_index);
 
     // Setup the signals
     stringbuf sig_name;
@@ -1998,12 +1998,12 @@ bool AtomThread::fetch_check_current_bb()
         current_bb = NULL;
     }
 
-    BasicBlock *bb = bbcache[ctx.cpu_index](fetchrip);
+    BasicBlock *bb = bbcache[ENV_GET_CPU(&ctx)->cpu_index](fetchrip);
 
     if likely (bb) {
         current_bb = bb;
     } else {
-        current_bb = bbcache[ctx.cpu_index].translate(ctx, fetchrip);
+        current_bb = bbcache[ENV_GET_CPU(&ctx)->cpu_index].translate(ctx, fetchrip);
 
         if unlikely (!current_bb) {
             if(fetchrip.rip == ctx.eip) {
@@ -2782,8 +2782,8 @@ bool AtomThread::handle_interrupt()
     ctx.event_upcall();
     handle_interrupt_at_next_eom = 0;
 
-    ATOMTHLOG1("Handling interrupt ", ctx.interrupt_request, " exit ",
-            ctx.exit_request, " elfags ", hexstring(ctx.eflags,32),
+    ATOMTHLOG1("Handling interrupt ", ENV_GET_CPU(&ctx)->interrupt_request, " exit ",
+            ENV_GET_CPU(&ctx)->exit_request, " elfags ", hexstring(ctx.eflags,32),
             " handle-interrupt ", ctx.handle_interrupt);
     return true;
 }
@@ -2928,7 +2928,7 @@ void AtomThread::flush_mem_locks()
     foreach (i, queued_mem_lock_count) {
         W64 lock_addr = queued_mem_lock_list[i];
         core.memoryHierarchy->invalidate_lock(lock_addr & ~(0x3),
-                ctx.cpu_index);
+                ENV_GET_CPU(&ctx)->cpu_index);
     }
 
     queued_mem_lock_count = 0;
@@ -2992,7 +2992,7 @@ AtomCore::AtomCore(BaseMachine& machine, int num_threads, const char* name)
 
     //coreid = machine.get_next_coreid();
 
-    threads = (AtomThread**)qemu_mallocz(threadcount*sizeof(AtomThread*));
+    threads = (AtomThread**)g_malloc0(threadcount*sizeof(AtomThread*));
 
 	stringbuf sg_name;
 	sg_name << name << "-run-cycle";
@@ -3258,7 +3258,7 @@ void AtomCore::reset()
 void AtomCore::flush_tlb(Context& ctx)
 {
     foreach(i, threadcount) {
-        if(threads[i]->ctx.cpu_index == ctx.cpu_index) {
+        if(ENV_GET_CPU(&(threads[i]->ctx))->cpu_index == ENV_GET_CPU(&ctx)->cpu_index) {
             dtlb.flush_thread(i);
             itlb.flush_thread(i);
             break;
@@ -3275,7 +3275,7 @@ void AtomCore::flush_tlb(Context& ctx)
 void AtomCore::flush_tlb_virt(Context& ctx, Waddr virtaddr)
 {
     foreach(i, threadcount) {
-        if(threads[i]->ctx.cpu_index == ctx.cpu_index) {
+        if(ENV_GET_CPU(&(threads[i]->ctx))->cpu_index == ENV_GET_CPU(&ctx)->cpu_index) {
             dtlb.flush_virt(virtaddr, i);
             itlb.flush_virt(virtaddr, i);
             break;

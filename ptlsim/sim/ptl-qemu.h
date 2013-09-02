@@ -113,7 +113,7 @@ void ptl_machine_configure(const char* config_str);
  *                             returns the CPUX86Context* of that Context
  */
 struct CPUX86State;
-CPUX86State* ptl_create_new_context(void);
+CPUX86State* ptl_create_new_context(void *env);
 
 /*
  * ptl_reconfigure
@@ -261,6 +261,8 @@ void set_cpu_fast_fwd(void);
  * ready to start emulation/simulation
  */
 void ptl_qemu_initialized(void);
+
+int64_t cpu_get_sim_clock(void);
 
 #ifdef __cplusplus
 }
