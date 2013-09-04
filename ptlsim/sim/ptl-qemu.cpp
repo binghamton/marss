@@ -275,9 +275,15 @@ uint64_t ptlsim_mmio_read(void *opaque, hwaddr addr, unsigned size) {
 }
 
 void ptlsim_mmio_write(void *opaque, hwaddr addr, uint64_t data, unsigned size) {
-  ptlcall_mmio_write(opaque, addr, data, size);
-}
+    ptlcall_mmio_write(current_cpu->env_ptr, addr, data, size);
 
+    /* Force timely reconfiguration. */
+    /* Otherwise, other VCPUs can run. */
+    if (simulation_configured) {
+        current_cpu->exit_request = 1;
+        exit_request = 1;
+    }
+}
 }
 
 void dump_all_info();
