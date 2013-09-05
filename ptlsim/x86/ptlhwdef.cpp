@@ -294,7 +294,7 @@ const char* sizeshift_names[4] = {
 };
 
 bool Context::check_events() const {
-	if(exit_request)
+	if(ENV_GET_CPU(this)->exit_request)
 		return true;
 	if(eflags & IF_MASK)
 		return (ENV_GET_CPU(this)->interrupt_request > 0);
