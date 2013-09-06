@@ -259,6 +259,8 @@ int BaseMachine::run(PTLsimConfig& config)
         clock_qemu_io_events();
 
 		foreach (i, coremodel.per_cycle_signals.size()) {
+      current_cpu = ENV_GET_CPU(&contextof(i));
+      smp_mb();
 			if (logable(4))
 				ptl_logfile << "Per-Cycle-Signal : " <<
 					coremodel.per_cycle_signals[i]->get_name() << endl;
