@@ -27,6 +27,8 @@ env['CPPPATH'].append("%s/%s" % (qemu_dir, "target-i386"))
 env['CPPPATH'].append("%s/%s" % (qemu_dir, "fpu"))
 env['CPPPATH'].append("%s/%s" % (qemu_dir, "x86_64-softmmu"))
 env['CPPPATH'].append("%s/%s" % (qemu_dir, "include"))
+env['CPPPATH'].append("%s/%s" % (qemu_dir, "tcg"))
+env['CPPPATH'].append("%s/%s" % (qemu_dir, "tcg/i386"))
 
 env.Append(CCFLAGS = ' `pkg-config --cflags glib-2.0` ')
 env.Append(LDFLAGS = ' `pkg-config --libs glib-2.0` ')
