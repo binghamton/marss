@@ -622,7 +622,8 @@ if ((config.loglevel > 0) & (config.start_log_at_rip == INVALIDRIP) & (config.st
   }
 
   if(config.run && !config.kill && !config.stop) {
-	  start_simulation = 1;
+      in_simulation = 1;
+      config.run = true;
   }
 
   if(config.start_at_rip != INVALIDRIP && current_start_sim_rip != config.start_at_rip) {

@@ -54,6 +54,8 @@ extern "C" {
 
 extern "C" {
 void cpu_set_sim_ticks(void);
+void pause_all_vcpus(void);
+void resume_all_vcpus(void);
 }
 
 /*
@@ -174,13 +176,36 @@ void ptlcall_mmio_write(CPUX86State* cpu, W64 offset, W64 value, int length) {
                 pending_call_type = PTLCALL_ENQUEUE;
                 simulation_configured = 1;
 
-                /*
-                 * Stop the QEMU vm and change ptlsim configuration
-                 * QEMU will be automatically started in simulation mode
-                 */
-                cpu_exit(ENV_GET_CPU(cpu));
+                ptl_machine_configure(pending_command_str);
+
+                //
+                // Pause all VCPUs, prepare the simulation timer,
+                // raise exit requests and flush translation blocks,
+                // then notify everyone and resume.
+                //
+                // Some of this might be excessive, but it's better
+                // to play it safe than to chance it.
+                //
+                // TODO [TJS] 9/6/13: Seems like something in MARSS
+                // is not being initialized properly; SMT often breaks
+                // if we try to jump straight into it, and non-SMT
+                // has issues with starting the first time. Whether or
+                // not it's related to this piece of code is unknown.
+                //
+                pause_all_vcpus();
+                cpu_set_sim_ticks();
+
+                foreach(i, NUM_SIM_CORES)
+                    tb_flush(&contextof(i));
+
+                cpu_exit(current_cpu);
+                exit_request = 1;
+                smp_mb();
+
+                resume_all_vcpus();
                 break;
             }
+
         case PTLCALL_CHECKPOINT:
             {
                 if (!config.quiet) cout << "PTLCALL type PTLCALL_CHECKPOINT\n";
@@ -276,13 +301,6 @@ uint64_t ptlsim_mmio_read(void *opaque, hwaddr addr, unsigned size) {
 
 void ptlsim_mmio_write(void *opaque, hwaddr addr, uint64_t data, unsigned size) {
     ptlcall_mmio_write(current_cpu->env_ptr, addr, data, size);
-
-    /* Force timely reconfiguration. */
-    /* Otherwise, other VCPUs can run. */
-    if (simulation_configured) {
-        current_cpu->exit_request = 1;
-        exit_request = 1;
-    }
 }
 }
 
