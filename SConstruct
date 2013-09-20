@@ -1,6 +1,10 @@
+# We don't support python 2.4 or less
+import sys
+if sys.version_info < (2, 5):
+    print("Please use python 2.5 or higher for MARSS")
+    sys.exit(-1)
 
 # Top level SConstruct for MARSSx86
-
 import os
 import config_helper
 
@@ -22,13 +26,6 @@ try:
         num_cpus = res
 except (AttributeError,ValueError):
     pass
-
-# We don't support python 2.4 or less
-import sys
-if sys.version_info < (2, 5):
-    print("Please use python 2.5 or higher for MARSS")
-    sys.exit(-1)
-
 
 SetOption('num_jobs', num_cpus + 1)
 print("running with -j%s" % GetOption('num_jobs'))
