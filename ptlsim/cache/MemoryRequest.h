@@ -20,6 +20,7 @@
 // ============================================================================
 #ifndef __MEMORYREQUEST_H__
 #define __MEMORYREQUEST_H__
+#include <cassert>
 #include <cstdint>
 #include "MemoryOperations.h"
 #include "PoolAllocator.h"
@@ -119,6 +120,7 @@ public:
   // Decrements/increments the reference counter.
   //
   void decRefCounter() {
+    assert(refCounter > 0);
     refCounter--;
   }
 
