@@ -22,6 +22,7 @@
 #define __MEMORYREQUEST_H__
 #include <cassert>
 #include <cstdint>
+#include <iostream>
 #include "MemoryOperations.h"
 #include "PoolAllocator.h"
 
@@ -114,7 +115,8 @@ public:
   //
   // Overloaded ostream operator for output.
   //
-  friend ostream& operator <<(ostream& os, const MemoryRequest& request);
+  friend std::ostream& operator<<(std::ostream& os,
+    const MemoryRequest& request);
 
   //
   // Decrements/increments the reference counter.
@@ -159,31 +161,12 @@ public:
   //
   // TODO: Finish removing superstl dependencies.
   //
-  stringbuf& get_history() { return *history; }
+  stringbuf& get_history() const { return *history; }
   Signal* get_coreSignal() const { return coreSignal; }
   void set_coreSignal(Signal* coreSignal) { this->coreSignal = coreSignal; }
 
   bool is_kernel() { return bits(ownerRIP, 48, 16) != 0; }
 };
-
-inline ostream& operator <<(ostream& os, const MemoryRequest& request) {
-  os << "Memory Request: core[", request.coreId, "] ";
-  os << "thread[", request.threadId, "] ";
-  os << "address[0x", hexstring(request.physicalAddress, 48), "] ";
-  os << "robid[", request.robId, "] ";
-  os << "init-cycle[", request.cycles, "] ";
-  os << "ref-counter[", request.refCounter, "] ";
-  os << "op-type[", request.getTypeLiteral(), "] ";
-  os << "isData[", request.isData, "] ";
-  os << "ownerUUID[", request.ownerUUID, "] ";
-  os << "ownerRIP[", (void*) (request.ownerRIP), "] ";
-  os << "History[ " << *(request.history) << "] ";
-
-  if(request.coreSignal)
-    os << "Signal[ " << request.coreSignal->get_name() << "] ";
-
-  return os;
-}
 
 }
 

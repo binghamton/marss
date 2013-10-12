@@ -20,8 +20,34 @@
 // ============================================================================
 #include "MemoryRequest.h"
 #include "PoolAllocator.h"
-using namespace Memory;
+#include <iostream>
+
+namespace Memory {
 
 // Request pool allocator; quickly allocate/move/release requests.
 PoolAllocator <MemoryRequest, 1024> MemoryRequest::Allocator;
+
+//
+// Overloaded ostream operator for output.
+//
+std::ostream& operator<<(std::ostream& os, const MemoryRequest& request) {
+  os << "Memory Request: core[" << request.getCoreId() << "] ";
+  os << "thread[" << request.getThreadId() << "] ";
+  os << "address[0x" << hexstring(request.getPhysicalAddress(), 48) << "] ";
+  os << "robid[" << request.getRobId() << "] ";
+  os << "init-cycle[" << request.getInitCycles() << "] ";
+  os << "ref-counter[" << request.getRefCounter() << "] ";
+  os << "op-type[" << request.getTypeLiteral() << "] ";
+  os << "isData[" << !request.isInstruction() << "] ";
+  os << "ownerUUID[" << request.getOwnerUUID() << "] ";
+  os << "ownerRIP[" << (void*) (request.getOwnerRIP()) << "] ";
+  os << "History[ " << *(request.get_history()) << "] ";
+
+  if(request.get_coreSignal())
+    os << "Signal[ " << request.get_coreSignal()->get_name() << "] ";
+
+  return os;
+}
+
+}
 
