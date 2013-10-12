@@ -66,11 +66,11 @@ public:
     coreId(coreId_), threadId(threadId_), refCounter(0), robId(robId_),
     operationType(operationType_), isData(!isInstruction) {
 
-	  if(history)
+    if(history)
       delete history;
 
-	  history = new stringbuf();
-	  //memdebug("Init ", *this, endl);
+    history = new stringbuf();
+    //memdebug("Init ", *this, endl);
   }
 
   MemoryRequest(const MemoryRequest& r) :
@@ -79,11 +79,11 @@ public:
     coreId(r.coreId), threadId(r.threadId), refCounter(0), robId(r.robId),
     operationType(r.operationType), isData(r.isData) {
 
-	  if(history)
+    if(history)
       delete history;
 
-	  history = new stringbuf();
-	  //memdebug("Init ", *this, endl);
+    history = new stringbuf();
+    //memdebug("Init ", *this, endl);
   }
 
   //
