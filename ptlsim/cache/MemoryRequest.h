@@ -20,20 +20,16 @@
 // ============================================================================
 #ifndef __MEMORYREQUEST_H__
 #define __MEMORYREQUEST_H__
-#include <globals.h>
-#include <superstl.h>
 #include <statelist.h>
 #include <cacheConstants.h>
 
-
 #include <cstdint>
-
 #include "MemoryOperations.h"
 #include "PoolAllocator.h"
 
 namespace Memory {
 
-class MemoryRequest: public selfqueuelink {
+class MemoryRequest {
   static PoolAllocator<MemoryRequest, 1024> Allocator;
   OperationType operationType;
 
