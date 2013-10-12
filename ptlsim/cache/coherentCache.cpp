@@ -285,12 +285,10 @@ bool CacheController::is_line_valid(CacheLine *line)
 void CacheController::send_message(CacheQueueEntry *queueEntry,
         Interconnect *interconn, OperationType type, W64 tag)
 {
-    MemoryRequest *request = new MemoryRequest();
-
     if(tag == InvalidTag<W64>::INVALID || tag == (W64)-1)
         tag = queueEntry->request->get_physical_address();
 
-    request->init(queueEntry->request);
+    MemoryRequest *request = new MemoryRequest(*queueEntry->request);
     request->set_physical_address(tag);
     request->setType(type);
 
@@ -831,7 +829,7 @@ void CacheController::annul_request(MemoryRequest *request)
     CacheQueueEntry *queueEntry;
     foreach_list_mutable(pendingRequests_.list(), queueEntry,
             entry, nextentry) {
-        if (queueEntry->request->is_same(request)) {
+        if (*queueEntry->request == *request) {
             queueEntry->annuled = true;
             /* Fix dependency chain if this entry was waiting for
              * some other entry, else wakeup that entry.*/

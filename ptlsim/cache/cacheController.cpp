@@ -799,7 +799,7 @@ void CacheController::annul_request(MemoryRequest *request)
 	CacheQueueEntry *queueEntry;
 	foreach_list_mutable(pendingRequests_.list(), queueEntry,
 			entry, nextentry) {
-		if(queueEntry->request->is_same(request)) {
+		if(*queueEntry->request == *request) {
             queueEntry->eventFlags.reset();
             clear_entry_cb(queueEntry);
 			queueEntry->annuled = true;
@@ -810,9 +810,7 @@ void CacheController::annul_request(MemoryRequest *request)
 bool CacheController::send_update_message(CacheQueueEntry *queueEntry,
 		W64 tag)
 {
-  MemoryRequest *request = new MemoryRequest();
-
-	request->init(queueEntry->request);
+  MemoryRequest *request = new MemoryRequest(*queueEntry->request);
 	request->setType(OPERATION_UPDATE);
 	if(tag != (W64)-1) {
 		request->set_physical_address(tag);
@@ -855,8 +853,7 @@ void CacheController::do_prefetch(MemoryRequest *request, int additional_delay)
 	if(pendingRequests_.count() > pendingRequests_.size() * 0.7)
 		return;
 
-  MemoryRequest* new_request = new MemoryRequest();
-	new_request->init(request);
+  MemoryRequest* new_request = new MemoryRequest(*request);
 
 	/* Now generate a new address for the prefetch */
 	W64 next_line_address = get_line_address(request);

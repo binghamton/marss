@@ -112,7 +112,7 @@ void BusInterconnect::annul_request(MemoryRequest *request)
         BusQueueEntry *entry;
         foreach_list_mutable(controllers[i]->queue.list(),
                 entry, entry_t, nextentry_t) {
-            if(entry->request->is_same(request)) {
+            if(*entry->request == *request) {
                 entry->annuled = true;
                 entry->request->decRefCounter();
                 controllers[i]->queue.free(entry);
@@ -122,7 +122,7 @@ void BusInterconnect::annul_request(MemoryRequest *request)
     PendingQueueEntry *queueEntry;
     foreach_list_mutable(pendingRequests_.list(), queueEntry,
             entry, nextentry) {
-        if(queueEntry->request->is_same(request)) {
+        if(*queueEntry->request == *request) {
             queueEntry->annuled = true;
             queueEntry->request->decRefCounter();
             ADD_HISTORY_REM(queueEntry->request);

@@ -535,8 +535,7 @@ bool DirectoryController::send_update_cb(void *arg)
         return true;
     }
 
-    newEntry->request = new MemoryRequest();
-    newEntry->request->init(queueEntry->request);
+    newEntry->request = new MemoryRequest(*queueEntry->request);
     newEntry->request->incRefCounter();
     newEntry->request->setType(OPERATION_UPDATE);
     newEntry->entry  = queueEntry->entry;
@@ -592,8 +591,7 @@ bool DirectoryController::send_evict_cb(void *arg)
 
         assert(newEntry);
 
-        newEntry->request = new MemoryRequest();
-        newEntry->request->init(queueEntry->request);
+        newEntry->request = new MemoryRequest(*queueEntry->request);
         newEntry->request->incRefCounter();
         newEntry->request->setType(OPERATION_EVICT);
         newEntry->entry  = queueEntry->entry;
@@ -806,8 +804,7 @@ DirectoryEntry* DirectoryController::get_directory_entry(
 
             assert(newEntry);
 
-            newEntry->request = new MemoryRequest();
-            newEntry->request->init(req);
+            newEntry->request = new MemoryRequest(*req);
             newEntry->request->incRefCounter();
             newEntry->request->set_physical_address(old_tag);
             newEntry->request->setType(OPERATION_EVICT);
@@ -940,7 +937,7 @@ void DirectoryController::annul_request(MemoryRequest *request)
     DirContBufferEntry *entry;
     foreach_list_mutable (pendingRequests_->list(), entry,
             entry_t, nextentry_t) {
-        if (entry->request->is_same(request)) {
+        if (*entry->request == *request) {
             entry->annuled = true;
             ADD_HISTORY_REM(entry->request);
             entry->request->decRefCounter();

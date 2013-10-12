@@ -50,11 +50,40 @@ class MemoryRequest {
 
 public:
   //
-  // Default constructor just resets all fields.
+  // Constructors just reset/set/copy all fields accordingly.
   //
   MemoryRequest() : coreSignal(NULL), history(NULL), physicalAddress(0),
     cycles(0), ownerRIP(0), ownerUUID(0), coreId(0), threadId(0), refCounter(0),
     robId(0), operationType(OPERATION_INVALID), isData(0) {}
+
+  MemoryRequest(unsigned coreId_, unsigned threadId_, uint64_t physicalAddress_,
+    int robId_, uint64_t cycles_, bool isInstruction, uint64_t ownerRIP_, 
+    uint64_t ownerUUID_, OperationType operationType_) :
+
+    coreSignal(NULL), history(NULL), physicalAddress(physicalAddress_),
+    cycles(cycles_), ownerRIP(ownerRIP_), ownerUUID(ownerUUID_),
+    coreId(coreId_), threadId(threadId_), refCounter(0), robId(robId_),
+    operationType(operationType_), isData(!isInstruction) {
+
+	  if(history)
+      delete history;
+
+	  history = new stringbuf();
+	  //memdebug("Init ", *this, endl);
+  }
+
+  MemoryRequest(const MemoryRequest& r) :
+    coreSignal(NULL), history(NULL), physicalAddress(r.physicalAddress),
+    cycles(r.cycles), ownerRIP(r.ownerRIP), ownerUUID(r.ownerUUID),
+    coreId(r.coreId), threadId(r.threadId), refCounter(0), robId(r.robId),
+    operationType(r.operationType), isData(r.isData) {
+
+	  if(history)
+      delete history;
+
+	  history = new stringbuf();
+	  //memdebug("Init ", *this, endl);
+  }
 
   //
   // Quickly allocate/deallocate a MemoryRequest.
@@ -69,15 +98,32 @@ public:
   }
 
   //
+  // Overloaded comparison operator.
+  //
+  bool operator==(const MemoryRequest& request) {
+    return
+      this->coreId == request.coreId &&
+      this->threadId == request.threadId &&
+      this->robId == request.robId &&
+      this->physicalAddress == request.physicalAddress &&
+      this->operationType == request.operationType &&
+      this->isData == request.isData;
+  }
+
+  //
   // Overloaded ostream operator for output.
   //
   friend ostream& operator <<(ostream& os, const MemoryRequest& request);
 
   //
-  // Decrements the reference counter.
+  // Decrements/increments the reference counter.
   //
   void decRefCounter() {
     refCounter--;
+  }
+
+  void incRefCounter() {
+    refCounter++;
   }
 
   //
@@ -92,13 +138,6 @@ public:
   }
 
   //
-  // Increments the reference counter.
-  //
-  void incRefCounter() {
-    refCounter++;
-  }
-
-  //
   // Sets the memory operation type.
   //
   void setType(OperationType type) {
@@ -106,26 +145,6 @@ public:
     assert(operationType > 0);
     operationType = type;
   }
-
-    void init(W8 coreId,
-        W8 threadId,
-        W64 physicalAddress,
-        int robId,
-        W64 cycles,
-        bool isInstruction,
-        W64 ownerRIP,
-        W64 ownerUUID,
-        OperationType opType);
-
-    bool is_same(W8 coreid,
-        W8 threadid,
-        int robid,
-        W64 physaddr,
-        bool is_icache,
-        bool is_write);
-    bool is_same(MemoryRequest *request);
-
-    void init(MemoryRequest *request);
 
     int get_ref_counter() {
       return refCounter;

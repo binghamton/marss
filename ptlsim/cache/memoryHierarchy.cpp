@@ -323,9 +323,10 @@ void MemoryHierarchy::annul_request(W8 coreid,
 	 * implement a logic where every cache will check physaddr's cache line
 	 * address with pending requests and flush them.
      */
-	MemoryRequest* memRequest = new MemoryRequest();
-	memRequest->init(coreid, threadid, physaddr, robid, sim_cycle, is_icache,
-			-1, -1, (is_write ? OPERATION_WRITE : OPERATION_READ));
+	MemoryRequest* memRequest = new MemoryRequest(coreid, threadid,
+    physaddr, robid, sim_cycle, is_icache, -1, -1,
+    (is_write ? OPERATION_WRITE : OPERATION_READ));
+
 	cpuControllers_[coreid]->annul_request(memRequest);
 	//foreach(i, allControllers_.count()) {
 	//	allControllers_[i]->annul_request(memRequest);

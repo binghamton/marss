@@ -93,7 +93,7 @@ void CPUController::annul_request(MemoryRequest *request)
 	CPUControllerQueueEntry *entry;
 	foreach_list_mutable(pendingRequests_.list(), entry,
 			entry_t, nextentry_t) {
-		if(entry->request->is_same(request)) {
+		if(*entry->request == *request) {
 			entry->annuled = true;
 			entry->request->decRefCounter();
 
