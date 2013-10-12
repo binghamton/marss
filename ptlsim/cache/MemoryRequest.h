@@ -31,77 +31,81 @@ namespace Memory {
 
 class MemoryRequest {
   static PoolAllocator<MemoryRequest, 1024> Allocator;
+
+  Signal *coreSignal;
+  stringbuf* history;
+
+  uint64_t physicalAddress;
+  uint64_t cycles;
+
+  uint64_t ownerRIP;
+  uint64_t ownerUUID;
+  unsigned coreId;
+  unsigned threadId;
+  int refCounter;
+  int robId;
+
   OperationType operationType;
-
-  uint64_t physicalAddress_;
-
-  uint64_t cycles_;
-  uint64_t ownerRIP_;
-  uint64_t ownerUUID_;
-
-  unsigned coreId_;
-  unsigned threadId_;
-  bool isData_;
-  int robId_;
-  int refCounter_;
-  stringbuf *history;
-  Signal *coreSignal_;
+  bool isData;
 
 public:
-  MemoryRequest() {
-    reset();
-  }
+  //
+  // Default constructor just resets all fields.
+  //
+  MemoryRequest() : coreSignal(NULL), history(NULL), physicalAddress(0),
+    cycles(0), ownerRIP(0), ownerUUID(0), coreId(0), threadId(0), refCounter(0),
+    robId(0), operationType(OPERATION_INVALID), isData(0) {}
 
-  // Quickly deallocate a MemoryRequest.
+  //
+  // Quickly allocate/deallocate a MemoryRequest.
+  //
   void operator delete(void* pointer, size_t count) {
     Allocator.deallocate((MemoryRequest*) pointer);
   }
 
-  // Quickly allocate a MemoryRequest.
   void* operator new(size_t count) {
     assert(count == sizeof(MemoryRequest));
     return Allocator.allocate(1);
   }
 
+  //
+  // Overloaded ostream operator for output.
+  //
+  friend ostream& operator <<(ostream& os, const MemoryRequest& request);
+
+  //
+  // Decrements the reference counter.
+  //
+  void decRefCounter() {
+    refCounter--;
+  }
+
+  //
   // Gets the memory operation type (enum).
+  //
   OperationType getType() const {
     return operationType;
   }
 
-  // Gets the memory operation type (literal).
   const char* getTypeLiteral() const {
     return OperationNames[operationType];
   }
 
+  //
+  // Increments the reference counter.
+  //
+  void incRefCounter() {
+    refCounter++;
+  }
+
+  //
   // Sets the memory operation type.
+  //
   void setType(OperationType type) {
     assert(operationType < NUM_OPERATION_TYPES);
     assert(operationType > 0);
     operationType = type;
   }
-
-    void reset() {
-      operationType = OPERATION_INVALID;
-
-      coreId_ = 0;
-      threadId_ = 0;
-      physicalAddress_ = 0;
-      robId_ = 0;
-      cycles_ = 0;
-      ownerRIP_ = 0;
-      refCounter_ = 0; // or maybe 1
-      isData_ = 0;
-      history = new stringbuf();
-            coreSignal_ = NULL;
-    }
-
-    void incRefCounter(){
-      refCounter_++;
-    }
-
-    void decRefCounter(){
-      refCounter_--;
-    }
 
     void init(W8 coreId,
         W8 threadId,
@@ -124,38 +128,38 @@ public:
     void init(MemoryRequest *request);
 
     int get_ref_counter() {
-      return refCounter_;
+      return refCounter;
     }
 
     void set_ref_counter(int count) {
-      refCounter_ = count;
+      refCounter = count;
     }
 
     bool is_instruction() {
-      return !isData_;
+      return !isData;
     }
 
-    W64 get_physical_address() { return physicalAddress_; }
-    void set_physical_address(W64 addr) { physicalAddress_ = addr; }
+    W64 get_physical_address() { return physicalAddress; }
+    void set_physical_address(W64 addr) { physicalAddress = addr; }
 
-    int get_coreid() { return int(coreId_); }
+    int get_coreid() { return int(coreId); }
 
-    int get_threadid() { return int(threadId_); }
+    int get_threadid() { return int(threadId); }
 
-    int get_robid() { return robId_; }
-    void set_robid(int idx) { robId_ = idx; }
+    int get_robid() { return robId; }
+    void set_robid(int idx) { robId = idx; }
 
-    W64 get_owner_rip() { return ownerRIP_; }
+    W64 get_owner_rip() { return ownerRIP; }
 
-    W64 get_owner_uuid() { return ownerUUID_; }
+    W64 get_owner_uuid() { return ownerUUID; }
 
-    W64 get_init_cycles() { return cycles_; }
+    W64 get_init_cycles() { return cycles; }
 
     stringbuf& get_history() { return *history; }
 
         bool is_kernel() {
             // based on owner RIP value
-            if(bits(ownerRIP_, 48, 16) != 0) {
+            if(bits(ownerRIP, 48, 16) != 0) {
                 return true;
             }
             return false;
@@ -163,39 +167,35 @@ public:
 
         void set_coreSignal(Signal* signal)
         {
-            coreSignal_ = signal;
+            coreSignal = signal;
         }
 
         Signal* get_coreSignal()
         {
-            return coreSignal_;
+            return coreSignal;
         }
 
-    ostream& print(ostream& os) const
-    {
-      os << "Memory Request: core[", coreId_, "] ";
-      os << "thread[", threadId_, "] ";
-      os << "address[0x", hexstring(physicalAddress_, 48), "] ";
-      os << "robid[", robId_, "] ";
-      os << "init-cycle[", cycles_, "] ";
-      os << "ref-counter[", refCounter_, "] ";
-      os << "op-type[", getTypeLiteral(), "] ";
-      os << "isData[", isData_, "] ";
-      os << "ownerUUID[", ownerUUID_, "] ";
-      os << "ownerRIP[", (void*)ownerRIP_, "] ";
-      os << "History[ " << *history << "] ";
-            if(coreSignal_) {
-                os << "Signal[ " << coreSignal_->get_name() << "] ";
-            }
-      return os;
-    }
 };
 
-static inline ostream& operator <<(ostream& os, const MemoryRequest& request)
-{
-  return request.print(os);
+inline ostream& operator <<(ostream& os, const MemoryRequest& request) {
+  os << "Memory Request: core[", request.coreId, "] ";
+  os << "thread[", request.threadId, "] ";
+  os << "address[0x", hexstring(request.physicalAddress, 48), "] ";
+  os << "robid[", request.robId, "] ";
+  os << "init-cycle[", request.cycles, "] ";
+  os << "ref-counter[", request.refCounter, "] ";
+  os << "op-type[", request.getTypeLiteral(), "] ";
+  os << "isData[", request.isData, "] ";
+  os << "ownerUUID[", request.ownerUUID, "] ";
+  os << "ownerRIP[", (void*) (request.ownerRIP), "] ";
+  os << "History[ " << *(request.history) << "] ";
+
+  if(request.coreSignal)
+    os << "Signal[ " << request.coreSignal->get_name() << "] ";
+
+  return os;
+}
 }
 
-};
+#endif
 
-#endif //MEMORY_REQUEST_H

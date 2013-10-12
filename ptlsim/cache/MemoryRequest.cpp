@@ -55,35 +55,35 @@ void MemoryRequest::init(W8 coreId,
 		W64 ownerUUID,
 		OperationType opType)
 {
-	coreId_ = coreId;
-	threadId_ = threadId;
-	physicalAddress_ = physicalAddress;
-	robId_ = robId;
-	cycles_ = cycles;
-	ownerRIP_ = ownerRIP;
-	ownerUUID_ = ownerUUID;
-	refCounter_ = 0; // or maybe 1
-	operationType = opType;
-	isData_ = !isInstruction;
+	this->coreId = coreId;
+	this->threadId = threadId;
+	this->physicalAddress = physicalAddress;
+	this->robId = robId;
+	this->cycles = cycles;
+	this->ownerRIP = ownerRIP;
+	this->ownerUUID = ownerUUID;
+	this->refCounter = 0; // or maybe 1
+	this->operationType = opType;
+	this->isData = !isInstruction;
 
 	if(history) delete history;
-	history = new stringbuf();
+	this->history = new stringbuf();
 
 	memdebug("Init ", *this, endl);
 }
 
 void MemoryRequest::init(MemoryRequest *request)
 {
-	coreId_ = request->coreId_;
-	threadId_ = request->threadId_;
-	physicalAddress_ = request->physicalAddress_;
-	robId_ = request->robId_;
-	cycles_ = request->cycles_;
-	ownerRIP_ = request->ownerRIP_;
-	ownerUUID_ = request->ownerUUID_;
-	refCounter_ = 0; // or maybe 1
+	coreId = request->coreId;
+	threadId = request->threadId;
+	physicalAddress = request->physicalAddress;
+	robId = request->robId;
+	cycles = request->cycles;
+	ownerRIP = request->ownerRIP;
+	ownerUUID = request->ownerUUID;
+	refCounter = 0; // or maybe 1
 	operationType = request->getType();
-	isData_ = request->isData_;
+	isData = request->isData;
 
 	if(history) delete history;
 	history = new stringbuf();
@@ -103,24 +103,24 @@ bool MemoryRequest::is_same(W8 coreid,
 		type = OPERATION_WRITE;
 	else
 		type = OPERATION_READ;
-	if(coreId_ == coreid &&
-			threadId_ == threadid &&
-			robId_ == robid &&
-			physicalAddress_ == physaddr &&
-			isData_ == !is_icache &&
-			getType() == type)
+	if(this->coreId == coreid &&
+			this->threadId == threadid &&
+			this->robId == robid &&
+			this->physicalAddress == physaddr &&
+			this->isData == !is_icache &&
+			this->getType() == type)
 		return true;
 	return false;
 }
 
 bool MemoryRequest::is_same(MemoryRequest *request)
 {
-	if(coreId_ == request->coreId_ &&
-			threadId_ == request->threadId_ &&
-			robId_ == request->robId_ &&
-			physicalAddress_ == request->physicalAddress_ &&
-			isData_ == request->isData_ &&
-			getType() == request->getType())
+	if(this->coreId == request->coreId &&
+			this->threadId == request->threadId &&
+			this->robId == request->robId &&
+			this->physicalAddress == request->physicalAddress &&
+			this->isData == request->isData &&
+			this->getType() == request->getType())
 		return true;
 	return false;
 }
