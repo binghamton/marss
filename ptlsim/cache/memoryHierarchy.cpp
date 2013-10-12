@@ -82,7 +82,7 @@ bool MemoryHierarchy::access_cache(MemoryRequest *request)
 	if(ret_val == 0)
 		return true;
 
-	if(request->get_type() == OPERATION_WRITE)
+	if(request->getType() == OPERATION_WRITE)
 		return true;
 
 	return false;

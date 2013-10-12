@@ -20,11 +20,11 @@
 // ============================================================================
 #ifndef __MEMORY_OPERATIONS_LIST__
 #define __MEMORY_OPERATIONS_LIST__ \
-  X(OPERATION_INVALID) \
-	X(OPERATION_READ) \
-	X(OPERATION_WRITE) \
-	X(OPERATION_UPDATE) \
-	X(OPERATION_EVICT)
+  X(INVALID) \
+	X(READ) \
+	X(WRITE) \
+	X(UPDATE) \
+	X(EVICT)
 #endif
 
 __MEMORY_OPERATIONS_LIST__

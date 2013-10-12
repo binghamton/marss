@@ -60,7 +60,7 @@ void MemoryRequest::init(W8 coreId,
 	ownerRIP_ = ownerRIP;
 	ownerUUID_ = ownerUUID;
 	refCounter_ = 0; // or maybe 1
-	opType_ = opType;
+	operationType = opType;
 	isData_ = !isInstruction;
 
 	if(history) delete history;
@@ -79,7 +79,7 @@ void MemoryRequest::init(MemoryRequest *request)
 	ownerRIP_ = request->ownerRIP_;
 	ownerUUID_ = request->ownerUUID_;
 	refCounter_ = 0; // or maybe 1
-	opType_ = request->opType_;
+	operationType = request->getType();
 	isData_ = request->isData_;
 
 	if(history) delete history;
@@ -105,7 +105,7 @@ bool MemoryRequest::is_same(W8 coreid,
 			robId_ == robid &&
 			physicalAddress_ == physaddr &&
 			isData_ == !is_icache &&
-			opType_ == type)
+			getType() == type)
 		return true;
 	return false;
 }
@@ -117,7 +117,7 @@ bool MemoryRequest::is_same(MemoryRequest *request)
 			robId_ == request->robId_ &&
 			physicalAddress_ == request->physicalAddress_ &&
 			isData_ == request->isData_ &&
-			opType_ == request->opType_)
+			getType() == request->getType())
 		return true;
 	return false;
 }

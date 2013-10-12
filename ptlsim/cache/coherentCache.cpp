@@ -195,7 +195,7 @@ bool CacheController::handle_upper_interconnect(Message &message)
         memdebug("dependent entry: " << *dependsOn << endl);
         dependsOn->depends = queueEntry->idx;
         queueEntry->waitFor = dependsOn->idx;
-        OperationType type       = queueEntry->request->get_type();
+        OperationType type       = queueEntry->request->getType();
         bool kernel_req    = queueEntry->request->is_kernel();
         if(type == OPERATION_READ) {
             N_STAT_UPDATE(new_stats->cpurequest.stall.read.dependency, ++, kernel_req);
@@ -256,8 +256,8 @@ bool CacheController::handle_lower_interconnect(Message &message)
     } else { // not lowestPrivate cache
         if(queueEntry == NULL) {
             /* check if request is cache eviction */
-            if(message.request->get_type() == OPERATION_EVICT ||
-                    message.request->get_type() == OPERATION_UPDATE) {
+            if(message.request->getType() == OPERATION_EVICT ||
+                    message.request->getType() == OPERATION_UPDATE) {
                 /* alloc new queueentry and evict the cache line if present */
                 CacheQueueEntry *evictEntry = pendingRequests_.alloc();
                 assert(evictEntry);
@@ -294,7 +294,7 @@ void CacheController::send_message(CacheQueueEntry *queueEntry,
 
     request->init(queueEntry->request);
     request->set_physical_address(tag);
-    request->set_op_type(type);
+    request->setType(type);
 
     CacheQueueEntry *evictEntry = pendingRequests_.alloc();
     assert(evictEntry);
@@ -425,7 +425,7 @@ int CacheController::access_fast_path(Interconnect *interconnect,
         return -1;
     }
 
-    if (request->get_type() != OPERATION_WRITE)
+    if (request->getType() != OPERATION_WRITE)
         line = cacheLines_->probe(request);
 
     /*
@@ -433,7 +433,7 @@ int CacheController::access_fast_path(Interconnect *interconnect,
      * level cache has to be updated
      */
     if(line && is_line_valid(line) &&
-            request->get_type() != OPERATION_WRITE) {
+            request->getType() != OPERATION_WRITE) {
         N_STAT_UPDATE(new_stats->cpurequest.count.hit.read.hit, ++,
                 request->is_kernel());
         return cacheLines_->latency();
@@ -553,7 +553,7 @@ bool CacheController::cache_miss_cb(void *arg)
 
     queueEntry->eventFlags[CACHE_MISS_EVENT]--;
 
-    if(queueEntry->request->get_type() == OPERATION_EVICT &&
+    if(queueEntry->request->getType() == OPERATION_EVICT &&
             !is_lowest_private()) {
         if(queueEntry->line)
             coherence_logic_->invalidate_line(queueEntry->line);
@@ -632,7 +632,7 @@ bool CacheController::cache_access_cb(void *arg)
 
     queueEntry->eventFlags[CACHE_ACCESS_EVENT]--;
     bool kernel_req = queueEntry->request->is_kernel();
-	OperationType type = queueEntry->request->get_type();
+	OperationType type = queueEntry->request->getType();
 
     if(cacheLines_->get_port(queueEntry->request)) {
         bool hit;
@@ -682,7 +682,7 @@ bool CacheController::cache_access_cb(void *arg)
                 (void*)queueEntry);
         return true;
     } else {
-        OperationType type = queueEntry->request->get_type();
+        OperationType type = queueEntry->request->getType();
         if(type == OPERATION_READ) {
             N_STAT_UPDATE(new_stats->cpurequest.stall.read.cache_port, ++,
                     kernel_req);
@@ -743,7 +743,7 @@ bool CacheController::wait_interconnect_cb(void *arg)
                     queueEntry->sendTo->get_delay(), (void*)queueEntry);
         }
     } else {
-        if(queueEntry->request->get_type() == OPERATION_UPDATE ||
+        if(queueEntry->request->getType() == OPERATION_UPDATE ||
                 queueEntry->responseData)
             message.hasData = true;
         else
@@ -768,8 +768,8 @@ bool CacheController::wait_interconnect_cb(void *arg)
              * lower level cache so we can remove the entry from
              * local queue
              */
-            if(queueEntry->request->get_type() == OPERATION_UPDATE ||
-                    queueEntry->request->get_type() == OPERATION_EVICT ||
+            if(queueEntry->request->getType() == OPERATION_UPDATE ||
+                    queueEntry->request->getType() == OPERATION_EVICT ||
                     queueEntry->isSnoop) {
                 clear_entry_cb(queueEntry);
             }

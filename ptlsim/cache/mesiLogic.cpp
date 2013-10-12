@@ -38,7 +38,7 @@ void MESILogic::handle_local_hit(CacheQueueEntry *queueEntry)
 {
     MESICacheLineState oldState = (MESICacheLineState)queueEntry->line->state;
     MESICacheLineState newState = NO_MESI_STATES;
-    OperationType type                = queueEntry->request->get_type();
+    OperationType type                = queueEntry->request->getType();
     bool kernel_req             = queueEntry->request->is_kernel();
 
     N_STAT_UPDATE(hit_state.cpu, [oldState]++,
@@ -143,7 +143,7 @@ void MESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
 {
     MESICacheLineState oldState = (MESICacheLineState)queueEntry->line->state;
     MESICacheLineState newState = NO_MESI_STATES;
-    OperationType type                = queueEntry->request->get_type();
+    OperationType type                = queueEntry->request->getType();
     bool kernel_req             = queueEntry->request->is_kernel();
 
     N_STAT_UPDATE(hit_state.snoop, [oldState]++,
@@ -243,8 +243,8 @@ void MESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
 void MESILogic::handle_interconn_miss(CacheQueueEntry *queueEntry)
 {
     /* On cache miss we dont perform anything */
-    if (queueEntry->request->get_type() != OPERATION_EVICT &&
-            queueEntry->request->get_type() != OPERATION_UPDATE) {
+    if (queueEntry->request->getType() != OPERATION_EVICT &&
+            queueEntry->request->getType() != OPERATION_UPDATE) {
         queueEntry->eventFlags[CACHE_WAIT_INTERCONNECT_EVENT]++;
         queueEntry->sendTo = controller->get_lower_intrconn();
         controller->wait_interconnect_cb(queueEntry);
@@ -294,7 +294,7 @@ void MESILogic::complete_request(CacheQueueEntry *queueEntry,
     assert(message.hasData);
 
     if(!controller->is_lowest_private()) {
-        if(message.request->get_type() == OPERATION_EVICT) {
+        if(message.request->getType() == OPERATION_EVICT) {
             queueEntry->line->state = MESI_INVALID;
         } else if(controller->is_private()) {
             /*
@@ -321,7 +321,7 @@ MESICacheLineState MESILogic::get_new_state(
 {
     MESICacheLineState oldState = (MESICacheLineState)queueEntry->line->state;
     MESICacheLineState newState = MESI_INVALID;
-    OperationType type                = queueEntry->request->get_type();
+    OperationType type                = queueEntry->request->getType();
     bool kernel_req             = queueEntry->request->is_kernel();
 
     if(type == OPERATION_EVICT) {

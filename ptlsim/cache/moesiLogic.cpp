@@ -38,7 +38,7 @@ void MOESILogic::handle_local_hit(CacheQueueEntry *queueEntry)
 {
     MOESICacheLineState *state = (MOESICacheLineState*)(&queueEntry->line->state);
     MOESICacheLineState oldState = *state;
-    OperationType type = queueEntry->request->get_type();
+    OperationType type = queueEntry->request->getType();
     bool k_req = queueEntry->request->is_kernel();
 
     N_STAT_UPDATE(hit_state, [oldState]++, k_req);
@@ -115,7 +115,7 @@ void MOESILogic::handle_local_miss(CacheQueueEntry *queueEntry)
 
     /* Go to directory if its lowest private and not UPDATE */
     if (controller->is_lowest_private() &&
-            queueEntry->request->get_type() != OPERATION_UPDATE) {
+            queueEntry->request->getType() != OPERATION_UPDATE) {
         queueEntry->dest = controller->get_directory();
     } else {
         queueEntry->dest = controller->get_lower_cont();
@@ -130,7 +130,7 @@ void MOESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
 {
     MOESICacheLineState *state = (MOESICacheLineState*)(&queueEntry->line->state);
     MOESICacheLineState oldState = *state;
-    OperationType type = queueEntry->request->get_type();
+    OperationType type = queueEntry->request->getType();
     bool k_req = queueEntry->request->is_kernel();
 
     // By default we mark the queueEntry's shared flat to false
@@ -268,7 +268,7 @@ void MOESILogic::handle_interconn_miss(CacheQueueEntry *queueEntry)
 
     /* If we get 'EVICT' message and our cache line is in invalid
      * state then we can ignore this request without an error*/
-    if (queueEntry->request->get_type() == OPERATION_EVICT) {
+    if (queueEntry->request->getType() == OPERATION_EVICT) {
         queueEntry->dest = controller->get_directory();
     } else {
         send_evict(queueEntry, -1, 1);
@@ -313,7 +313,7 @@ void MOESILogic::complete_request(CacheQueueEntry *queueEntry,
 {
     MOESICacheLineState *state = (MOESICacheLineState*)(&queueEntry->line->state);
     MOESICacheLineState oldState = *state;
-    OperationType type = queueEntry->request->get_type();
+    OperationType type = queueEntry->request->getType();
     bool k_req = queueEntry->request->is_kernel();
     bool isShared = message.isShared;
 
@@ -369,7 +369,7 @@ void MOESILogic::complete_request(CacheQueueEntry *queueEntry,
         }
 
     } else {
-        if (message.request->get_type() == OPERATION_EVICT) {
+        if (message.request->getType() == OPERATION_EVICT) {
             queueEntry->line->state = MOESI_INVALID;
         } else if (controller->is_private()) {
             /* Message's argument holds correct line state */

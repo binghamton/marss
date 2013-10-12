@@ -28,7 +28,7 @@ namespace Memory {
 // See "MemoryOperations.md" for a listing.
 //
 enum OperationType {
-#define X(op) op,
+#define X(op) OPERATION_##op,
 #include "MemoryOperations.md"
 #undef X
   NUM_OPERATION_TYPES,

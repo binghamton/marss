@@ -34,7 +34,7 @@ env.Append(CCFLAGS = ' `pkg-config --cflags glib-2.0` ')
 env.Append(LDFLAGS = ' `pkg-config --libs glib-2.0` ')
 env.Append(CCFLAGS = ' -DTARGET_X86_64' )
 
-optimization_defs = '-std=gnu++0x -fno-trapping-math -fstack-protector -fpermissive '
+optimization_defs = '-std=gnu++0x -fno-trapping-math -fstack-protector '
 optimization_defs += '-fno-exceptions -fno-rtti -funroll-loops -fstrict-aliasing '
 
 GCC_VERSION = subprocess.Popen([env['CC'], '-dumpversion'],

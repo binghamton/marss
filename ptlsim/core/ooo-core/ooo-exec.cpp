@@ -2218,7 +2218,7 @@ bool OooCore::dcache_wakeup(void *arg) {
     Memory::MemoryRequest* request = (Memory::MemoryRequest*)arg;
 
     /* If request was for memory write, no need to do anything.. */
-    if(request->get_type() == Memory::OPERATION_WRITE) {
+    if(request->getType() == Memory::OPERATION_WRITE) {
         return true;
     }
 

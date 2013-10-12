@@ -137,7 +137,7 @@ bool DirectoryController::handle_interconnect_cb(void *arg)
     memdebug("DirCont["<< get_name() << "] received message: " <<
             *message << endl);
 
-    return (this->*req_handlers[request->get_type()])(message);
+    return (this->*req_handlers[request->getType()])(message);
 }
 
 void DirectoryController::register_interconnect(Interconnect *interconn,
@@ -539,7 +539,7 @@ bool DirectoryController::send_update_cb(void *arg)
             queueEntry->request->get_coreid());
     newEntry->request->init(queueEntry->request);
     newEntry->request->incRefCounter();
-    newEntry->request->set_op_type(OPERATION_UPDATE);
+    newEntry->request->setType(OPERATION_UPDATE);
     newEntry->entry  = queueEntry->entry;
     newEntry->origin = (queueEntry->cont) ? queueEntry->idx : -1;
 
@@ -597,7 +597,7 @@ bool DirectoryController::send_evict_cb(void *arg)
                 queueEntry->request->get_coreid());
         newEntry->request->init(queueEntry->request);
         newEntry->request->incRefCounter();
-        newEntry->request->set_op_type(OPERATION_EVICT);
+        newEntry->request->setType(OPERATION_EVICT);
         newEntry->entry  = queueEntry->entry;
         newEntry->origin = (queueEntry->cont) ? queueEntry->idx : -1;
 
@@ -632,13 +632,13 @@ bool DirectoryController::send_response_cb(void *arg)
 
 	queueEntry->entry->locked = 0;
 
-    if (queueEntry->request->get_type() == OPERATION_WRITE) {
+    if (queueEntry->request->getType() == OPERATION_WRITE) {
         queueEntry->entry->owner = queueEntry->cont->idx;
         queueEntry->entry->dirty = 1;
     }
 
     if (!queueEntry->shared &&
-            queueEntry->request->get_type() == OPERATION_READ) {
+            queueEntry->request->getType() == OPERATION_READ) {
         /* When we have only one cached entry then we do assign
          * that as owner untill some writer to same cache line shows up */
         queueEntry->entry->owner = queueEntry->cont->idx;
@@ -690,7 +690,7 @@ bool DirectoryController::send_msg_cb(void *arg)
     if (!success) {
         int delay = interconn_->get_delay();
         if (delay == 0) delay = AVG_WAIT_DELAY;
-        if (queueEntry->request->get_type() == OPERATION_EVICT)
+        if (queueEntry->request->getType() == OPERATION_EVICT)
             delay = 1;
         marss_add_event(&send_msg, delay, queueEntry);
         return true;
@@ -813,7 +813,7 @@ DirectoryEntry* DirectoryController::get_directory_entry(
             newEntry->request->init(req);
             newEntry->request->incRefCounter();
             newEntry->request->set_physical_address(old_tag);
-            newEntry->request->set_op_type(OPERATION_EVICT);
+            newEntry->request->setType(OPERATION_EVICT);
             newEntry->entry = get_dummy_entry(entry, old_tag);
             newEntry->free_on_success = 1;
 
@@ -881,7 +881,7 @@ void DirectoryController::wakeup_dependent(DirContBufferEntry *queueEntry)
         Signal *sig = depEntry->wakeup_sig;
 
         if (!sig) {
-            switch (depEntry->request->get_type()) {
+            switch (depEntry->request->getType()) {
                 case OPERATION_READ:   sig = &read_miss; break;
                 case OPERATION_WRITE:  sig = &write_miss; break;
                 case OPERATION_UPDATE: sig = &update; break;

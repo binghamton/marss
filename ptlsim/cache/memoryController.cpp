@@ -100,11 +100,11 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 
 	memdebug("Received message in Memory controller: ", *message, endl);
 
-	if(message->hasData && message->request->get_type() !=
+	if(message->hasData && message->request->getType() !=
 			OPERATION_UPDATE)
 		return true;
 
-    if (message->request->get_type() == OPERATION_EVICT) {
+    if (message->request->getType() == OPERATION_EVICT) {
         /* We ignore all the evict messages */
         return true;
     }
@@ -115,7 +115,7 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 	 * memory update request to same line and if we can merge
 	 * those requests then merge them into one request
 	 */
-	if(message->request->get_type() == OPERATION_UPDATE) {
+	if(message->request->getType() == OPERATION_UPDATE) {
 		MemoryQueueEntry *entry;
 		foreach_list_mutable_backwards(pendingRequests_.list(),
 				entry, entry_t, nextentry_t) {
@@ -127,7 +127,7 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 				 * don't merge to maintain the serialization
 				 * order
 				 */
-				if(!entry->inUse && entry->request->get_type() ==
+				if(!entry->inUse && entry->request->getType() ==
 						OPERATION_UPDATE) {
 					/*
 					 * We can merge the request, so in simulation
@@ -198,7 +198,7 @@ bool MemoryController::access_completed_cb(void *arg)
     banksUsed_[bank_no] = 0;
 
     N_STAT_UPDATE(new_stats.bank_access, [bank_no]++, kernel);
-    switch(queueEntry->request->get_type()) {
+    switch(queueEntry->request->getType()) {
         case OPERATION_READ:
             N_STAT_UPDATE(new_stats.bank_read, [bank_no]++, kernel);
             break;
@@ -253,7 +253,7 @@ bool MemoryController::wait_interconnect_cb(void *arg)
 	bool success = false;
 
 	/* Don't send response if its a memory update request */
-	if(queueEntry->request->get_type() == OPERATION_UPDATE) {
+	if(queueEntry->request->getType() == OPERATION_UPDATE) {
 		queueEntry->request->decRefCounter();
 		ADD_HISTORY_REM(queueEntry->request);
 		pendingRequests_.free(queueEntry);

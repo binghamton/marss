@@ -248,7 +248,7 @@ namespace Memory {
                 readPortUsed_ = 0;
             }
 
-            switch(request->get_type()) {
+            switch(request->getType()) {
                 case OPERATION_READ:
                     rc = (readPortUsed_ < readPorts_) ? ++readPortUsed_ : 0;
                     break;
@@ -259,7 +259,7 @@ namespace Memory {
                     break;
                 default:
                     memdebug("Unknown type of memory request: " <<
-                            request->get_type() << endl);
+                            request->getType() << endl);
                     assert(0);
             };
             return rc;

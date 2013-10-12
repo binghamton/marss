@@ -300,7 +300,7 @@ bool BusInterconnect::broadcast_cb(void *arg)
      * if its full dont' broadcast
      */
     if(pendingRequests_.isFull() &&
-            queueEntry->request->get_type() != OPERATION_UPDATE) {
+            queueEntry->request->getType() != OPERATION_UPDATE) {
         memdebug("Bus cant do addr broadcast, pending queue full\n");
         marss_add_event(&broadcast_,
                 latency_, NULL);
@@ -350,8 +350,8 @@ bool BusInterconnect::broadcast_completed_cb(void *arg)
 
     /* now create an entry into pendingRequests_ */
     PendingQueueEntry *pendingEntry = NULL;
-    if(queueEntry->request->get_type() != OPERATION_UPDATE &&
-			queueEntry->request->get_type() != OPERATION_EVICT) {
+    if(queueEntry->request->getType() != OPERATION_UPDATE &&
+			queueEntry->request->getType() != OPERATION_EVICT) {
         pendingEntry = pendingRequests_.alloc();
         assert(pendingEntry);
         pendingEntry->request = queueEntry->request;
@@ -401,7 +401,7 @@ bool BusInterconnect::broadcast_completed_cb(void *arg)
     N_STAT_UPDATE(new_stats->addr_bus_cycles, += latency_,
             kernel);
     if(pendingEntry) {
-        switch(pendingEntry->request->get_type()) {
+        switch(pendingEntry->request->getType()) {
             case OPERATION_READ: N_STAT_UPDATE(new_stats->broadcasts.read, ++, kernel);
                                  break;
             case OPERATION_WRITE: N_STAT_UPDATE(new_stats->broadcasts.write, ++, kernel);
@@ -514,7 +514,7 @@ bool BusInterconnect::data_broadcast_completed_cb(void *arg)
     N_STAT_UPDATE(new_stats->data_bus_cycles, += latency_, kernel);
     W64 delay = sim_cycle - pendingEntry->initCycle;
     assert(delay > (W64)latency_);
-    switch(pendingEntry->request->get_type()) {
+    switch(pendingEntry->request->getType()) {
         case OPERATION_READ: N_STAT_UPDATE(new_stats->broadcast_cycles.read, += delay, kernel);
                              break;
         case OPERATION_WRITE: N_STAT_UPDATE(new_stats->broadcast_cycles.write, += delay, kernel);

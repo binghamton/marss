@@ -2402,7 +2402,7 @@ bool AtomThread::dcache_wakeup(void *arg)
     MemoryRequest* req = (MemoryRequest*)arg;
     W64 req_rip = req->get_owner_rip();
 
-    if(req->get_type() == Memory::OPERATION_WRITE) {
+    if(req->getType() == Memory::OPERATION_WRITE) {
         return true;
     }
 

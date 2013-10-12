@@ -167,7 +167,7 @@ bool CacheController::handle_interconnect_cb(void *arg)
 
 	if(sender == upperInterconnect_ || sender == upperInterconnect2_) {
 
-		if(msg->hasData && msg->request->get_type() !=
+		if(msg->hasData && msg->request->getType() !=
 				OPERATION_UPDATE)
 			return true;
 
@@ -209,7 +209,7 @@ bool CacheController::handle_interconnect_cb(void *arg)
          */
 		queueEntry->eventFlags[CACHE_ACCESS_EVENT]++;
 
-		if(queueEntry->request->get_type() == OPERATION_UPDATE &&
+		if(queueEntry->request->getType() == OPERATION_UPDATE &&
 				wt_disabled_ == false) {
 			if(type_ == L2_CACHE || type_ == L3_CACHE) {
 				memdebug("L2/L3 cache update sending to lower\n");
@@ -229,7 +229,7 @@ bool CacheController::handle_interconnect_cb(void *arg)
 			memdebug("dependent entry: " << *dependsOn << endl);
 			dependsOn->depends = queueEntry->idx;
 			dependsOn->dependsAddr = queueEntry->request->get_physical_address();
-			OperationType type = queueEntry->request->get_type();
+			OperationType type = queueEntry->request->getType();
             bool kernel_req = queueEntry->request->is_kernel();
 			if(type == OPERATION_READ) {
 				N_STAT_UPDATE(new_stats.cpurequest.stall.read.dependency, ++, kernel_req);
@@ -274,7 +274,7 @@ bool CacheController::handle_interconnect_cb(void *arg)
 							(void*)(queueEntry));
 				} else if(msg->request == queueEntry->request ||
 						(msg->request != queueEntry->request &&
-						 queueEntry->request->get_type() ==
+						 queueEntry->request->getType() ==
 						 OPERATION_READ) ) {
 
 					queueEntry->sendTo = queueEntry->sender;
@@ -296,7 +296,7 @@ bool CacheController::handle_interconnect_cb(void *arg)
 				 * if request is cache update, then access the cache
 				 * and update its data
                  */
-				if(msg->request->get_type() == OPERATION_UPDATE) {
+				if(msg->request->getType() == OPERATION_UPDATE) {
 
 					if(is_full(true)) {
 						memdebug(get_name() << "Controller queue is full\n");
@@ -345,7 +345,7 @@ bool CacheController::handle_interconnect_cb(void *arg)
 			 * its a cache update request. In case of cache update
 			 * if we have cached same line, update that line
              */
-			if(msg->request->get_type() == OPERATION_UPDATE) {
+			if(msg->request->getType() == OPERATION_UPDATE) {
 				assert(0);
 			}
 			else {
@@ -368,7 +368,7 @@ int CacheController::access_fast_path(Interconnect *interconnect,
         return -1;
     }
 
-    if (request->get_type() != OPERATION_WRITE)
+    if (request->getType() != OPERATION_WRITE)
         hit = cacheLines_->probe(request);
 
 	// TESTING
@@ -378,7 +378,7 @@ int CacheController::access_fast_path(Interconnect *interconnect,
      * if its a write, dont do fast access as the lower
      * level cache has to be updated
      */
-	if(hit && request->get_type() != OPERATION_WRITE) {
+	if(hit && request->getType() != OPERATION_WRITE) {
         N_STAT_UPDATE(new_stats.cpurequest.count.hit.read.hit, ++,
                 request->is_kernel());
 		return cacheLines_->latency();
@@ -546,7 +546,7 @@ bool CacheController::cache_access_cb(void *arg)
         //		if(type_ == L2_CACHE)
         //			hit = true;
 
-		OperationType type = queueEntry->request->get_type();
+		OperationType type = queueEntry->request->getType();
 		bool kernel_req = queueEntry->request->is_kernel();
 		Signal *signal = NULL;
 		int delay;
@@ -642,7 +642,7 @@ bool CacheController::cache_access_cb(void *arg)
 				(void*)queueEntry);
 		return true;
 	} else {
-		OperationType type = queueEntry->request->get_type();
+		OperationType type = queueEntry->request->getType();
         bool kernel_req = queueEntry->request->is_kernel();
 		if(type == OPERATION_READ) {
 			N_STAT_UPDATE(new_stats.cpurequest.stall.read.cache_port, ++, kernel_req);
@@ -703,7 +703,7 @@ bool CacheController::wait_interconnect_cb(void *arg)
 					delay, (void*)queueEntry);
 		}
 	} else {
-		if(queueEntry->request->get_type() == OPERATION_UPDATE)
+		if(queueEntry->request->getType() == OPERATION_UPDATE)
 			message.hasData = true;
 
 		message.dest = queueEntry->dest;
@@ -726,7 +726,7 @@ bool CacheController::wait_interconnect_cb(void *arg)
              * lower level cache so we can remove the entry from
              * local queue
              */
-			if(queueEntry->request->get_type() == OPERATION_UPDATE) {
+			if(queueEntry->request->getType() == OPERATION_UPDATE) {
 				clear_entry_cb(queueEntry);
 			} else {
 				queueEntry->eventFlags[CACHE_WAIT_RESPONSE]++;
@@ -815,7 +815,7 @@ bool CacheController::send_update_message(CacheQueueEntry *queueEntry,
 	assert(request);
 
 	request->init(queueEntry->request);
-	request->set_op_type(OPERATION_UPDATE);
+	request->setType(OPERATION_UPDATE);
 	if(tag != (W64)-1) {
 		request->set_physical_address(tag);
 	}
