@@ -43,7 +43,7 @@ using namespace Memory;
 bool OooCore::icache_wakeup(void *arg) {
     Memory::MemoryRequest *request = (Memory::MemoryRequest*)arg;
 
-    W64 physaddr = request->get_physical_address();
+    W64 physaddr = request->getPhysicalAddress();
     if(logable(99)) ptl_logfile << " icache_wakeup addr ", (void*) physaddr, endl;
     foreach (i, threadcount) {
         ThreadContext* thread = threads[i];

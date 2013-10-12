@@ -119,8 +119,8 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 		MemoryQueueEntry *entry;
 		foreach_list_mutable_backwards(pendingRequests_.list(),
 				entry, entry_t, nextentry_t) {
-			if(entry->request->get_physical_address() ==
-					message->request->get_physical_address()) {
+			if(entry->request->getPhysicalAddress() ==
+					message->request->getPhysicalAddress()) {
 				/*
 				 * found an request for same line, now if this
 				 * request is memory update then merge else
@@ -164,7 +164,7 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 	ADD_HISTORY_ADD(queueEntry->request);
 
 	int bank_no = get_bank_id(message->request->
-			get_physical_address());
+			getPhysicalAddress());
 
     assert(queueEntry->inUse == false);
 
@@ -194,7 +194,7 @@ bool MemoryController::access_completed_cb(void *arg)
     bool kernel = queueEntry->request->is_kernel();
 
     int bank_no = get_bank_id(queueEntry->request->
-            get_physical_address());
+            getPhysicalAddress());
     banksUsed_[bank_no] = 0;
 
     N_STAT_UPDATE(new_stats.bank_access, [bank_no]++, kernel);
@@ -220,7 +220,7 @@ bool MemoryController::access_completed_cb(void *arg)
     foreach_list_mutable(pendingRequests_.list(), entry, entry_t,
             prev_t) {
         int bank_no_2 = get_bank_id(entry->request->
-                get_physical_address());
+                getPhysicalAddress());
         if(bank_no == bank_no_2 && entry->inUse == false) {
             entry->inUse = true;
             marss_add_event(&accessCompleted_,
@@ -310,7 +310,7 @@ int MemoryController::get_no_pending_request(W8 coreid)
 	MemoryQueueEntry *queueEntry;
 	foreach_list_mutable(pendingRequests_.list(), queueEntry,
 			entry, nextentry) {
-		if(queueEntry->request->get_coreid() == coreid)
+		if(queueEntry->request->getCoreId() == coreid)
 			count++;
 	}
 	return count;

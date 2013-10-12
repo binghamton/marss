@@ -47,7 +47,7 @@ Directory::Directory()
 
 DirectoryEntry* Directory::insert(MemoryRequest *req, W64& old_tag)
 {
-    W64 phys_addr = req->get_physical_address();
+    W64 phys_addr = req->getPhysicalAddress();
     DirectoryEntry* entry = entries->select(phys_addr, old_tag);
 
     return entry;
@@ -55,7 +55,7 @@ DirectoryEntry* Directory::insert(MemoryRequest *req, W64& old_tag)
 
 DirectoryEntry* Directory::probe(MemoryRequest *req)
 {
-    W64 phys_addr = req->get_physical_address();
+    W64 phys_addr = req->getPhysicalAddress();
     DirectoryEntry* entry = entries->probe(phys_addr);
 
     return entry;
@@ -63,7 +63,7 @@ DirectoryEntry* Directory::probe(MemoryRequest *req)
 
 int Directory::invalidate(MemoryRequest *req)
 {
-    return entries->invalidate(req->get_physical_address());
+    return entries->invalidate(req->getPhysicalAddress());
 }
 
 Directory* Directory::dir = NULL;
@@ -750,7 +750,7 @@ DirContBufferEntry* DirectoryController::find_entry(MemoryRequest *req)
 DirContBufferEntry* DirectoryController::find_dependent_enry(
         MemoryRequest *req)
 {
-    W64 line_addr = get_line_addr(req->get_physical_address());
+    W64 line_addr = get_line_addr(req->getPhysicalAddress());
 
     DirContBufferEntry* queueEntry;
     foreach_list_mutable(pendingRequests_->list(), queueEntry, entry,
@@ -759,7 +759,7 @@ DirContBufferEntry* DirectoryController::find_dependent_enry(
         if (req == queueEntry->request || queueEntry->annuled)
             continue;
 
-        if (get_line_addr(queueEntry->request->get_physical_address())
+        if (get_line_addr(queueEntry->request->getPhysicalAddress())
                 == line_addr) {
             while(queueEntry->depends >= 0) {
                 if ((*pendingRequests_)[queueEntry->depends].annuled)
@@ -780,7 +780,7 @@ DirectoryEntry* DirectoryController::get_directory_entry(
     DirectoryEntry *entry = dir_.probe(req);
 
     if (!entry && must_present) {
-        W64 tag_t = dir_.tag_of(req->get_physical_address());
+        W64 tag_t = dir_.tag_of(req->getPhysicalAddress());
         foreach (i, REQ_Q_SIZE) {
             DirectoryEntry* d_entry = &dummy_entries[i];
             if (d_entry->tag == tag_t) {
@@ -806,7 +806,7 @@ DirectoryEntry* DirectoryController::get_directory_entry(
 
             newEntry->request = new MemoryRequest(*req);
             newEntry->request->incRefCounter();
-            newEntry->request->set_physical_address(old_tag);
+            newEntry->request->setPhysicalAddress(old_tag);
             newEntry->request->setType(OPERATION_EVICT);
             newEntry->entry = get_dummy_entry(entry, old_tag);
             newEntry->free_on_success = 1;
@@ -825,7 +825,7 @@ DirectoryEntry* DirectoryController::get_directory_entry(
             }
         }
 
-        entry->init(dir_.tag_of(req->get_physical_address()));
+        entry->init(dir_.tag_of(req->getPhysicalAddress()));
     }
 
     return entry;

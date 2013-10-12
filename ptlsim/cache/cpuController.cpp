@@ -132,8 +132,8 @@ int CPUController::flush()
 bool CPUController::is_icache_buffer_hit(MemoryRequest *request)
 {
 	W64 lineAddress;
-	assert(request->is_instruction());
-	lineAddress = request->get_physical_address() >> icacheLineBits_;
+	assert(request->isInstruction());
+	lineAddress = request->getPhysicalAddress() >> icacheLineBits_;
 
 	memdebug("ICache Line Address is : ", lineAddress, endl);
 
@@ -159,7 +159,7 @@ int CPUController::access_fast_path(Interconnect *interconnect,
 
 	if likely (interconnect == NULL) {
 		// From CPU
-		if unlikely (request->is_instruction()) {
+		if unlikely (request->isInstruction()) {
 
 			bool bufferHit = is_icache_buffer_hit(request);
 			if(bufferHit)
@@ -211,7 +211,7 @@ int CPUController::access_fast_path(Interconnect *interconnect,
 		dependentEntry->depends = queueEntry->idx;
         queueEntry->waitFor = dependentEntry->idx;
 		queueEntry->cycles = -1;
-		if unlikely(queueEntry->request->is_instruction()) {
+		if unlikely(queueEntry->request->isInstruction()) {
 			N_STAT_UPDATE(stats.cpurequest.stall.read.dependency, ++, kernel_req);
 		}
 		else  {
@@ -296,11 +296,11 @@ void CPUController::finalize_request(CPUControllerQueueEntry *queueEntry)
 			*queueEntry, endl);
 	MemoryRequest *request = queueEntry->request;
 
-	int req_latency = sim_cycle - request->get_init_cycles();
+	int req_latency = sim_cycle - request->getInitCycles();
 	req_latency = (req_latency >= 200) ? 199 : req_latency;
     bool kernel_req = request->is_kernel();
 
-	if unlikely (request->is_instruction()) {
+	if unlikely (request->isInstruction()) {
 		W64 lineAddress = get_line_address(request);
 		if likely (icacheBuffer_.isFull()) {
 			memdebug("Freeing icache buffer head\n");
@@ -341,7 +341,7 @@ bool CPUController::cache_access_cb(void *arg)
 
     /* Send request to corresponding interconnect */
 	Interconnect *interconnect;
-	if unlikely (queueEntry->request->is_instruction())
+	if unlikely (queueEntry->request->isInstruction())
 		interconnect = int_L1_i_;
 	else
 		interconnect = int_L1_d_;
@@ -398,7 +398,7 @@ bool CPUController::queue_access_cb(void *arg)
         queueEntry->waitFor = dependentEntry->idx;
 		queueEntry->cycles = -1;
         bool kernel_req = queueEntry->request->is_kernel();
-		if unlikely(queueEntry->request->is_instruction()) {
+		if unlikely(queueEntry->request->isInstruction()) {
 			N_STAT_UPDATE(stats.cpurequest.stall.read.dependency, ++, kernel_req);
 		}
 		else  {

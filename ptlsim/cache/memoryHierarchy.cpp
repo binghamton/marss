@@ -58,7 +58,7 @@ MemoryHierarchy::MemoryHierarchy(BaseMachine& machine) :
 
 bool MemoryHierarchy::access_cache(MemoryRequest *request)
 {
-	W8 coreid = request->get_coreid();
+	W8 coreid = request->getCoreId();
 	CPUController *cpuController = (CPUController*)cpuControllers_[coreid];
 	assert(cpuController != NULL);
 

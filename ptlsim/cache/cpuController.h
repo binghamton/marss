@@ -130,9 +130,9 @@ class CPUController : public Controller
 		CPUControllerQueueEntry* find_entry(MemoryRequest *request);
 
 		W64 get_line_address(MemoryRequest *request) {
-			if(request->is_instruction())
-				return request->get_physical_address() >> icacheLineBits_;
-			return request->get_physical_address() >> dcacheLineBits_;
+			if(request->isInstruction())
+				return request->getPhysicalAddress() >> icacheLineBits_;
+			return request->getPhysicalAddress() >> dcacheLineBits_;
 		}
 
 	public:

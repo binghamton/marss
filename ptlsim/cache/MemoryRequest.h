@@ -127,18 +127,22 @@ public:
   }
 
   //
-  // Gets the memory operation type (enum).
+  // Class getters.
   //
-  OperationType getType() const {
-    return operationType;
-  }
-
-  const char* getTypeLiteral() const {
-    return OperationNames[operationType];
-  }
+  unsigned getCoreId() const { return coreId; }
+  uint64_t getInitCycles() const { return cycles; }
+  uint64_t getOwnerRIP() const { return ownerRIP; }
+  uint64_t getOwnerUUID() const { return ownerUUID; }
+  uint64_t getPhysicalAddress() const { return physicalAddress; }
+  int getRefCounter() const { return refCounter; }
+  int getRobId() const { return robId; }
+  unsigned getThreadId() const { return threadId; }
+  OperationType getType() const { return operationType; }
+  const char* getTypeLiteral() const { return OperationNames[operationType]; }
+  bool isInstruction() const { return !isData; }
 
   //
-  // Sets the memory operation type.
+  // Class setters.
   //
   void setType(OperationType type) {
     assert(operationType < NUM_OPERATION_TYPES);
@@ -146,54 +150,18 @@ public:
     operationType = type;
   }
 
-    int get_ref_counter() {
-      return refCounter;
-    }
+  void setPhysicalAddress(uint64_t addr) { this->physicalAddress = addr; }
+  void setRefCounter(int refCounter) { this->refCounter = refCounter; }
+  void setRobId(int robId) { this->robId = robId; }
 
-    void set_ref_counter(int count) {
-      refCounter = count;
-    }
+  //
+  // TODO: Finish removing superstl dependencies.
+  //
+  stringbuf& get_history() { return *history; }
+  Signal* get_coreSignal() const { return coreSignal; }
+  void set_coreSignal(Signal* coreSignal) { this->coreSignal = coreSignal; }
 
-    bool is_instruction() {
-      return !isData;
-    }
-
-    W64 get_physical_address() { return physicalAddress; }
-    void set_physical_address(W64 addr) { physicalAddress = addr; }
-
-    int get_coreid() { return int(coreId); }
-
-    int get_threadid() { return int(threadId); }
-
-    int get_robid() { return robId; }
-    void set_robid(int idx) { robId = idx; }
-
-    W64 get_owner_rip() { return ownerRIP; }
-
-    W64 get_owner_uuid() { return ownerUUID; }
-
-    W64 get_init_cycles() { return cycles; }
-
-    stringbuf& get_history() { return *history; }
-
-        bool is_kernel() {
-            // based on owner RIP value
-            if(bits(ownerRIP, 48, 16) != 0) {
-                return true;
-            }
-            return false;
-        }
-
-        void set_coreSignal(Signal* signal)
-        {
-            coreSignal = signal;
-        }
-
-        Signal* get_coreSignal()
-        {
-            return coreSignal;
-        }
-
+  bool is_kernel() { return bits(ownerRIP, 48, 16) != 0; }
 };
 
 inline ostream& operator <<(ostream& os, const MemoryRequest& request) {

@@ -2218,13 +2218,13 @@ bool OooCore::dcache_wakeup(void *arg) {
         return true;
     }
 
-    int idx = request->get_robid();
-    W64 physaddr = request->get_physical_address();
-    ThreadContext* thread = threads[request->get_threadid()];
+    int idx = request->getRobId();
+    W64 physaddr = request->getPhysicalAddress();
+    ThreadContext* thread = threads[request->getThreadId()];
     assert(inrange(idx, 0, ROB_SIZE-1));
     ReorderBufferEntry& rob = thread->ROB[idx];
     if(logable(6)) ptl_logfile << " dcache_wakeup ", rob, " request ", *request, endl;
-    if(rob.lsq && request->get_owner_uuid() == rob.uop.uuid &&
+    if(rob.lsq && request->getOwnerUUID() == rob.uop.uuid &&
             rob.lsq->physaddr == (physaddr >> 3) &&
             rob.current_state_list == &thread->rob_cache_miss_list){
         if(logable(6)) ptl_logfile << " rob ", rob, endl;
@@ -2325,7 +2325,7 @@ bool OooCore::dcache_wakeup(void *arg) {
     }else{
         if(logable(5)) {
             ptl_logfile << " ignor annulled request : request uuid ",
-                        request->get_owner_uuid(), " rob.uop.uuid ", rob.uop.uuid;
+                        request->getOwnerUUID(), " rob.uop.uuid ", rob.uop.uuid;
             if(rob.lsq)
                 ptl_logfile << " lsq_physaddr ", (void*)(rob.lsq->physaddr << 3),
                             " physaddr ", (void*)physaddr;

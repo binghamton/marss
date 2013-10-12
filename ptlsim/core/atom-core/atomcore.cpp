@@ -2389,7 +2389,7 @@ bool AtomThread::access_dcache(Waddr addr, W64 rip, W8 type, W64 uuid)
 bool AtomThread::dcache_wakeup(void *arg)
 {
     MemoryRequest* req = (MemoryRequest*)arg;
-    W64 req_rip = req->get_owner_rip();
+    W64 req_rip = req->getOwnerRIP();
 
     if(req->getType() == Memory::OPERATION_WRITE) {
         return true;
@@ -2433,7 +2433,7 @@ bool AtomThread::icache_wakeup(void *arg)
 {
     MemoryRequest* req = (MemoryRequest*)arg;
 
-    W64 addr = req->get_physical_address();
+    W64 addr = req->getPhysicalAddress();
 
     if(waiting_for_icache_miss &&
             icache_miss_addr == floor(addr, ICACHE_FETCH_GRANULARITY)) {

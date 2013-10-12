@@ -215,7 +215,7 @@ namespace Memory {
     template <int SET_COUNT, int WAY_COUNT, int LINE_SIZE, int LATENCY>
         CacheLine* CacheLines<SET_COUNT, WAY_COUNT, LINE_SIZE, LATENCY>::probe(MemoryRequest *request)
         {
-            W64 physAddress = request->get_physical_address();
+            W64 physAddress = request->getPhysicalAddress();
             CacheLine *line = base_t::probe(physAddress);
 
             return line;
@@ -224,7 +224,7 @@ namespace Memory {
     template <int SET_COUNT, int WAY_COUNT, int LINE_SIZE, int LATENCY>
         CacheLine* CacheLines<SET_COUNT, WAY_COUNT, LINE_SIZE, LATENCY>::insert(MemoryRequest *request, W64& oldTag)
         {
-            W64 physAddress = request->get_physical_address();
+            W64 physAddress = request->getPhysicalAddress();
             CacheLine *line = base_t::select(physAddress, oldTag);
 
             return line;
@@ -233,7 +233,7 @@ namespace Memory {
     template <int SET_COUNT, int WAY_COUNT, int LINE_SIZE, int LATENCY>
         int CacheLines<SET_COUNT, WAY_COUNT, LINE_SIZE, LATENCY>::invalidate(MemoryRequest *request)
         {
-            return base_t::invalidate(request->get_physical_address());
+            return base_t::invalidate(request->getPhysicalAddress());
         }
 
 

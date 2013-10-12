@@ -286,10 +286,10 @@ void CacheController::send_message(CacheQueueEntry *queueEntry,
         Interconnect *interconn, OperationType type, W64 tag)
 {
     if(tag == InvalidTag<W64>::INVALID || tag == (W64)-1)
-        tag = queueEntry->request->get_physical_address();
+        tag = queueEntry->request->getPhysicalAddress();
 
     MemoryRequest *request = new MemoryRequest(*queueEntry->request);
-    request->set_physical_address(tag);
+    request->setPhysicalAddress(tag);
     request->setType(type);
 
     CacheQueueEntry *evictEntry = pendingRequests_.alloc();
@@ -360,7 +360,7 @@ bool CacheController::complete_request(Message &message,
      * and then check that message has data flag set
      */
     if(queueEntry->line == NULL || queueEntry->line->tag !=
-            cacheLines_->tagOf(queueEntry->request->get_physical_address())) {
+            cacheLines_->tagOf(queueEntry->request->getPhysicalAddress())) {
         W64 oldTag = InvalidTag<W64>::INVALID;
         CacheLine *line = cacheLines_->insert(queueEntry->request,
                 oldTag);
@@ -373,7 +373,7 @@ bool CacheController::complete_request(Message &message,
         queueEntry->line = line;
         handle_cache_insert(queueEntry, oldTag);
         queueEntry->line->init(cacheLines_->tagOf(queueEntry->
-                    request->get_physical_address()));
+                    request->getPhysicalAddress()));
     }
 
     assert(queueEntry->line);

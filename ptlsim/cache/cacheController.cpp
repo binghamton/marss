@@ -228,7 +228,7 @@ bool CacheController::handle_interconnect_cb(void *arg)
 			/* Found an dependency */
 			memdebug("dependent entry: " << *dependsOn << endl);
 			dependsOn->depends = queueEntry->idx;
-			dependsOn->dependsAddr = queueEntry->request->get_physical_address();
+			dependsOn->dependsAddr = queueEntry->request->getPhysicalAddress();
 			OperationType type = queueEntry->request->getType();
             bool kernel_req = queueEntry->request->is_kernel();
 			if(type == OPERATION_READ) {
@@ -500,7 +500,7 @@ bool CacheController::cache_insert_cb(void *arg)
 
         line->state = LINE_VALID;
         line->init(cacheLines_->tagOf(queueEntry->request->
-                    get_physical_address()));
+                    getPhysicalAddress()));
 
 		queueEntry->eventFlags[CACHE_INSERT_COMPLETE_EVENT]++;
 		marss_add_event(&cacheInsertComplete_,
@@ -813,7 +813,7 @@ bool CacheController::send_update_message(CacheQueueEntry *queueEntry,
   MemoryRequest *request = new MemoryRequest(*queueEntry->request);
 	request->setType(OPERATION_UPDATE);
 	if(tag != (W64)-1) {
-		request->set_physical_address(tag);
+		request->setPhysicalAddress(tag);
 	}
 
 	CacheQueueEntry *new_entry = pendingRequests_.alloc();
@@ -858,7 +858,7 @@ void CacheController::do_prefetch(MemoryRequest *request, int additional_delay)
 	/* Now generate a new address for the prefetch */
 	W64 next_line_address = get_line_address(request);
 	next_line_address = (next_line_address + 1) << cacheLineBits_;
-	new_request->set_physical_address(next_line_address);
+	new_request->setPhysicalAddress(next_line_address);
 
 	CacheQueueEntry *new_entry = pendingRequests_.alloc();
 	assert(new_entry);

@@ -188,7 +188,7 @@ class CacheController : public Controller
 		CacheQueueEntry* find_match(MemoryRequest *request);
 
 		W64 get_line_address(MemoryRequest *request) {
-			return request->get_physical_address() >> cacheLineBits_;
+			return request->getPhysicalAddress() >> cacheLineBits_;
 		}
 
 		bool send_update_message(CacheQueueEntry *queueEntry,
