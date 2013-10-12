@@ -12,7 +12,7 @@
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+//  along with MARSS.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  Copyright 2013 Tyler Stachecki <tstache1@cs.binghamton.edu>
 //  Copyright 2009 Avadh Patel <apatel@cs.binghamton.edu>

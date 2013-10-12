@@ -30,9 +30,8 @@ namespace {
                 queueEntry = new CacheQueueEntry();
                 queueEntry->init();
 
-                Memory::MemoryRequest *request = new Memory::MemoryRequest();
-                request->init(0, 0, 0x1234567, 0, 0, true, 0xffffff0,
-                        0, OPERATION_READ);
+                Memory::MemoryRequest *request = new Memory::MemoryRequest(
+                  0, 0, 0x1234567, 0, 0, true, 0xffffff0, 0, OPERATION_READ);
                 queueEntry->request = request;
 
                 line = new CacheLine();

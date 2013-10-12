@@ -30,6 +30,8 @@
 
 #include <globals.h>
 #include <superstl.h>
+#include <statelist.h>
+#include <cacheConstants.h>
 #include "MemoryRequest.h"
 
 namespace Memory {
