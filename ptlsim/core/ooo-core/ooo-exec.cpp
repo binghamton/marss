@@ -1758,7 +1758,7 @@ int ReorderBufferEntry::issueload(LoadStoreQueueEntry& state, Waddr& origaddr, W
     assert(request != NULL);
 
     request->init(core.get_coreid(), threadid, state.physaddr << 3, idx, sim_cycle,
-            false, uop.rip.rip, uop.uuid, Memory::MEMORY_OP_READ);
+            false, uop.rip.rip, uop.uuid, Memory::OPERATION_READ);
     request->set_coreSignal(&core.dcache_signal);
 
     bool L1hit = core.memoryHierarchy->access_cache(request);
@@ -2065,7 +2065,7 @@ rob_cont:
     assert(request != NULL);
 
     request->init(core.get_coreid(), threadid, pteaddr, idx, sim_cycle,
-            false, uop.rip.rip, uop.uuid, Memory::MEMORY_OP_READ);
+            false, uop.rip.rip, uop.uuid, Memory::OPERATION_READ);
     request->set_coreSignal(&core.dcache_signal);
 
     lsq->physaddr = pteaddr >> 3;
@@ -2218,7 +2218,7 @@ bool OooCore::dcache_wakeup(void *arg) {
     Memory::MemoryRequest* request = (Memory::MemoryRequest*)arg;
 
     /* If request was for memory write, no need to do anything.. */
-    if(request->get_type() == Memory::MEMORY_OP_WRITE) {
+    if(request->get_type() == Memory::OPERATION_WRITE) {
         return true;
     }
 

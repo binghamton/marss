@@ -30,7 +30,7 @@
 
 #include <globals.h>
 #include <superstl.h>
-#include <memoryRequest.h>
+#include "MemoryRequest.h"
 
 namespace Memory {
 

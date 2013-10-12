@@ -292,7 +292,7 @@ namespace Memory {
                 Statable* get_stats() { return new_stats; }
 
                 void send_message(CacheQueueEntry *queueEntry,
-                        Interconnect *interconn, OP_TYPE type, W64 tag =-1);
+                        Interconnect *interconn, OperationType type, W64 tag =-1);
 
                 virtual void send_evict_to_upper(CacheQueueEntry *entry, W64 tag=-1);
                 virtual void send_evict_to_lower(CacheQueueEntry *entry, W64 tag=-1);

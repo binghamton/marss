@@ -935,7 +935,7 @@ W8 AtomOp::execute_load(TransOp& uop, int idx)
 
         /* Access memory */
         bool L1_miss = !thread->access_dcache(addr, rip,
-                Memory::MEMORY_OP_READ,
+                Memory::OPERATION_READ,
                 uuid);
 
         if(L1_miss) {
@@ -1498,7 +1498,7 @@ void AtomOp::update_reg_mem()
             } else {
 
                 thread->access_dcache(buf->addr, rip,
-                        Memory::MEMORY_OP_WRITE,
+                        Memory::OPERATION_WRITE,
                         uuid);
                 if(config.checker_enabled && !thread->ctx.kernel_mode) {
                     add_checker_store(buf, uops[i].size);
@@ -1958,7 +1958,7 @@ bool AtomThread::fetch_from_icache()
         assert(request != NULL);
 
         request->init(core.get_coreid(), threadid, physaddr, 0, sim_cycle,
-                true, fetchrip.rip, 0, Memory::MEMORY_OP_READ);
+                true, fetchrip.rip, 0, Memory::OPERATION_READ);
         request->set_coreSignal(&icache_signal);
 
         hit = core.memoryHierarchy->access_cache(request);
@@ -2091,7 +2091,7 @@ itlb_walk_finish:
     assert(request != NULL);
 
     request->init(core.get_coreid(), threadid, pteaddr, 0, sim_cycle,
-            true, fetchrip.rip, 0, Memory::MEMORY_OP_READ);
+            true, fetchrip.rip, 0, Memory::OPERATION_READ);
     request->set_coreSignal(&icache_signal);
 
     icache_miss_addr = floor(pteaddr, ICACHE_FETCH_GRANULARITY);
@@ -2148,7 +2148,7 @@ dtlb_walk_finish:
     assert(request != NULL);
 
     request->init(core.get_coreid(), threadid, pteaddr, 0, sim_cycle,
-            false, 0, 0, Memory::MEMORY_OP_READ);
+            false, 0, 0, Memory::OPERATION_READ);
     request->set_coreSignal(&dcache_signal);
 
     bool L1_hit = core.memoryHierarchy->access_cache(request);
@@ -2377,7 +2377,7 @@ bool AtomThread::access_dcache(Waddr addr, W64 rip, W8 type, W64 uuid)
     assert(request);
 
     request->init(core.get_coreid(), threadid, addr, 0,
-            sim_cycle, false, rip, uuid, (Memory::OP_TYPE)type);
+            sim_cycle, false, rip, uuid, (Memory::OperationType)type);
     request->set_coreSignal(&dcache_signal);
 
     st_dcache.accesses++;
@@ -2402,7 +2402,7 @@ bool AtomThread::dcache_wakeup(void *arg)
     MemoryRequest* req = (MemoryRequest*)arg;
     W64 req_rip = req->get_owner_rip();
 
-    if(req->get_type() == Memory::MEMORY_OP_WRITE) {
+    if(req->get_type() == Memory::OPERATION_WRITE) {
         return true;
     }
 

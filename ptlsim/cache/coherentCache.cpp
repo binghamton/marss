@@ -195,11 +195,11 @@ bool CacheController::handle_upper_interconnect(Message &message)
         memdebug("dependent entry: " << *dependsOn << endl);
         dependsOn->depends = queueEntry->idx;
         queueEntry->waitFor = dependsOn->idx;
-        OP_TYPE type       = queueEntry->request->get_type();
+        OperationType type       = queueEntry->request->get_type();
         bool kernel_req    = queueEntry->request->is_kernel();
-        if(type == MEMORY_OP_READ) {
+        if(type == OPERATION_READ) {
             N_STAT_UPDATE(new_stats->cpurequest.stall.read.dependency, ++, kernel_req);
-        } else if(type == MEMORY_OP_WRITE) {
+        } else if(type == OPERATION_WRITE) {
             N_STAT_UPDATE(new_stats->cpurequest.stall.write.dependency, ++, kernel_req);
         }
     } else {
@@ -256,8 +256,8 @@ bool CacheController::handle_lower_interconnect(Message &message)
     } else { // not lowestPrivate cache
         if(queueEntry == NULL) {
             /* check if request is cache eviction */
-            if(message.request->get_type() == MEMORY_OP_EVICT ||
-                    message.request->get_type() == MEMORY_OP_UPDATE) {
+            if(message.request->get_type() == OPERATION_EVICT ||
+                    message.request->get_type() == OPERATION_UPDATE) {
                 /* alloc new queueentry and evict the cache line if present */
                 CacheQueueEntry *evictEntry = pendingRequests_.alloc();
                 assert(evictEntry);
@@ -283,7 +283,7 @@ bool CacheController::is_line_valid(CacheLine *line)
 }
 
 void CacheController::send_message(CacheQueueEntry *queueEntry,
-        Interconnect *interconn, OP_TYPE type, W64 tag)
+        Interconnect *interconn, OperationType type, W64 tag)
 {
     MemoryRequest *request = memoryHierarchy_->get_free_request(
             queueEntry->request->get_coreid());
@@ -320,29 +320,29 @@ void CacheController::send_message(CacheQueueEntry *queueEntry,
 
 void CacheController::send_evict_to_upper(CacheQueueEntry *entry, W64 oldTag)
 {
-    send_message(entry, upperInterconnect_, MEMORY_OP_EVICT, oldTag);
+    send_message(entry, upperInterconnect_, OPERATION_EVICT, oldTag);
 
     if(upperInterconnect2_)
-        send_message(entry, upperInterconnect2_, MEMORY_OP_EVICT, oldTag);
+        send_message(entry, upperInterconnect2_, OPERATION_EVICT, oldTag);
 }
 
 void CacheController::send_evict_to_lower(CacheQueueEntry *entry, W64 oldTag)
 {
-    send_message(entry, lowerInterconnect_, MEMORY_OP_EVICT, oldTag);
+    send_message(entry, lowerInterconnect_, OPERATION_EVICT, oldTag);
 }
 
 void CacheController::send_update_to_upper(CacheQueueEntry *entry, W64 tag)
 {
-    send_message(entry, upperInterconnect_, MEMORY_OP_UPDATE, tag);
+    send_message(entry, upperInterconnect_, OPERATION_UPDATE, tag);
 
     if(upperInterconnect2_)
-        send_message(entry, upperInterconnect2_, MEMORY_OP_UPDATE, tag);
+        send_message(entry, upperInterconnect2_, OPERATION_UPDATE, tag);
 }
 
 void CacheController::send_update_to_lower(CacheQueueEntry *entry, W64 tag)
 {
     entry->dest = lowerCont_;
-    send_message(entry, lowerInterconnect_, MEMORY_OP_UPDATE, tag);
+    send_message(entry, lowerInterconnect_, OPERATION_UPDATE, tag);
 }
 
 void CacheController::handle_cache_insert(CacheQueueEntry *queueEntry,
@@ -425,7 +425,7 @@ int CacheController::access_fast_path(Interconnect *interconnect,
         return -1;
     }
 
-    if (request->get_type() != MEMORY_OP_WRITE)
+    if (request->get_type() != OPERATION_WRITE)
         line = cacheLines_->probe(request);
 
     /*
@@ -433,7 +433,7 @@ int CacheController::access_fast_path(Interconnect *interconnect,
      * level cache has to be updated
      */
     if(line && is_line_valid(line) &&
-            request->get_type() != MEMORY_OP_WRITE) {
+            request->get_type() != OPERATION_WRITE) {
         N_STAT_UPDATE(new_stats->cpurequest.count.hit.read.hit, ++,
                 request->is_kernel());
         return cacheLines_->latency();
@@ -553,7 +553,7 @@ bool CacheController::cache_miss_cb(void *arg)
 
     queueEntry->eventFlags[CACHE_MISS_EVENT]--;
 
-    if(queueEntry->request->get_type() == MEMORY_OP_EVICT &&
+    if(queueEntry->request->get_type() == OPERATION_EVICT &&
             !is_lowest_private()) {
         if(queueEntry->line)
             coherence_logic_->invalidate_line(queueEntry->line);
@@ -632,7 +632,7 @@ bool CacheController::cache_access_cb(void *arg)
 
     queueEntry->eventFlags[CACHE_ACCESS_EVENT]--;
     bool kernel_req = queueEntry->request->is_kernel();
-	OP_TYPE type = queueEntry->request->get_type();
+	OperationType type = queueEntry->request->get_type();
 
     if(cacheLines_->get_port(queueEntry->request)) {
         bool hit;
@@ -653,10 +653,10 @@ bool CacheController::cache_access_cb(void *arg)
             delay = cacheAccessLatency_;
 
 			if (!queueEntry->isSnoop) {
-				if(type == MEMORY_OP_READ) {
+				if(type == OPERATION_READ) {
 					N_STAT_UPDATE(new_stats->cpurequest.count.hit.read.hit, ++,
 							kernel_req);
-				} else if(type == MEMORY_OP_WRITE) {
+				} else if(type == OPERATION_WRITE) {
 					N_STAT_UPDATE(new_stats->cpurequest.count.hit.write.hit, ++,
 							kernel_req);
 				}
@@ -669,10 +669,10 @@ bool CacheController::cache_access_cb(void *arg)
                     kernel_req);
 
 			if (!queueEntry->isSnoop) {
-				if(type == MEMORY_OP_READ) {
+				if(type == OPERATION_READ) {
 					N_STAT_UPDATE(new_stats->cpurequest.count.miss.read, ++,
 							kernel_req);
-				} else if(type == MEMORY_OP_WRITE) {
+				} else if(type == OPERATION_WRITE) {
 					N_STAT_UPDATE(new_stats->cpurequest.count.miss.write, ++,
 							kernel_req);
 				}
@@ -682,11 +682,11 @@ bool CacheController::cache_access_cb(void *arg)
                 (void*)queueEntry);
         return true;
     } else {
-        OP_TYPE type = queueEntry->request->get_type();
-        if(type == MEMORY_OP_READ) {
+        OperationType type = queueEntry->request->get_type();
+        if(type == OPERATION_READ) {
             N_STAT_UPDATE(new_stats->cpurequest.stall.read.cache_port, ++,
                     kernel_req);
-        } else if(type == MEMORY_OP_WRITE) {
+        } else if(type == OPERATION_WRITE) {
             N_STAT_UPDATE(new_stats->cpurequest.stall.write.cache_port, ++,
                     kernel_req);
         }
@@ -743,7 +743,7 @@ bool CacheController::wait_interconnect_cb(void *arg)
                     queueEntry->sendTo->get_delay(), (void*)queueEntry);
         }
     } else {
-        if(queueEntry->request->get_type() == MEMORY_OP_UPDATE ||
+        if(queueEntry->request->get_type() == OPERATION_UPDATE ||
                 queueEntry->responseData)
             message.hasData = true;
         else
@@ -768,8 +768,8 @@ bool CacheController::wait_interconnect_cb(void *arg)
              * lower level cache so we can remove the entry from
              * local queue
              */
-            if(queueEntry->request->get_type() == MEMORY_OP_UPDATE ||
-                    queueEntry->request->get_type() == MEMORY_OP_EVICT ||
+            if(queueEntry->request->get_type() == OPERATION_UPDATE ||
+                    queueEntry->request->get_type() == OPERATION_EVICT ||
                     queueEntry->isSnoop) {
                 clear_entry_cb(queueEntry);
             }

@@ -249,12 +249,12 @@ namespace Memory {
             }
 
             switch(request->get_type()) {
-                case MEMORY_OP_READ:
+                case OPERATION_READ:
                     rc = (readPortUsed_ < readPorts_) ? ++readPortUsed_ : 0;
                     break;
-                case MEMORY_OP_WRITE:
-                case MEMORY_OP_UPDATE:
-                case MEMORY_OP_EVICT:
+                case OPERATION_WRITE:
+                case OPERATION_UPDATE:
+                case OPERATION_EVICT:
                     rc = (writePortUsed_ < writePorts_) ? ++writePortUsed_ : 0;
                     break;
                 default:

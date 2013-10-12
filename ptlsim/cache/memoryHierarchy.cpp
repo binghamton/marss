@@ -82,7 +82,7 @@ bool MemoryHierarchy::access_cache(MemoryRequest *request)
 	if(ret_val == 0)
 		return true;
 
-	if(request->get_type() == MEMORY_OP_WRITE)
+	if(request->get_type() == OPERATION_WRITE)
 		return true;
 
 	return false;
@@ -346,7 +346,7 @@ void MemoryHierarchy::annul_request(W8 coreid,
      */
 	MemoryRequest* memRequest = get_free_request(coreid);
 	memRequest->init(coreid, threadid, physaddr, robid, sim_cycle, is_icache,
-			-1, -1, (is_write ? MEMORY_OP_WRITE : MEMORY_OP_READ));
+			-1, -1, (is_write ? OPERATION_WRITE : OPERATION_READ));
 	cpuControllers_[coreid]->annul_request(memRequest);
 	//foreach(i, allControllers_.count()) {
 	//	allControllers_[i]->annul_request(memRequest);

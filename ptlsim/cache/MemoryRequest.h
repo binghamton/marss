@@ -1,54 +1,32 @@
-
-/*
- * MARSSx86 : A Full System Computer-Architecture Simulator
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * Copyright 2009 Avadh Patel <apatel@cs.binghamton.edu>
- * Copyright 2009 Furat Afram <fafram@cs.binghamton.edu>
- *
- */
-
-#ifndef MEMORY_REQUEST_H
-#define MEMORY_REQUEST_H
-
+// ============================================================================
+//  MemoryOps.h: Memory operation types.
+//
+//  MARSS is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  MARSS is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  Copyright 2013 Tyler Stachecki <tstache1@cs.binghamton.edu>
+//  Copyright 2009 Avadh Patel <apatel@cs.binghamton.edu>
+//  Copyright 2009 Furat Afram <fafram@cs.binghamton.edu>
+// ============================================================================
+#ifndef __MEMORYREQUEST_H__
+#define __MEMORYREQUEST_H__
 #include <globals.h>
 #include <superstl.h>
 #include <statelist.h>
+#include "MemoryOperations.h"
 #include <cacheConstants.h>
 
 namespace Memory {
-
-enum OP_TYPE {
-	MEMORY_OP_READ,   /* Indicates cache miss on a read/load operation */
-	MEMORY_OP_WRITE,  /* Indicates cache miss on a write/store operation */
-	MEMORY_OP_UPDATE, /* Indicates cache write-back request */
-	MEMORY_OP_EVICT,  /* Indicates cache evict request */
-	NUM_MEMORY_OP
-};
-
-static const char* memory_op_names[NUM_MEMORY_OP] = {
-	"memory_op_read",
-	"memory_op_write",
-	"memory_op_update",
-	"memory_op_evict"
-};
 
 class MemoryRequest: public selfqueuelink
 {
@@ -63,7 +41,7 @@ class MemoryRequest: public selfqueuelink
 			cycles_ = 0;
 			ownerRIP_ = 0;
 			refCounter_ = 0; // or maybe 1
-			opType_ = MEMORY_OP_READ;
+			opType_ = OPERATION_READ;
 			isData_ = 0;
 			history = new stringbuf();
             coreSignal_ = NULL;
@@ -85,7 +63,7 @@ class MemoryRequest: public selfqueuelink
 				bool isInstruction,
 				W64 ownerRIP,
 				W64 ownerUUID,
-				OP_TYPE opType);
+				OperationType opType);
 
 		bool is_same(W8 coreid,
 				W8 threadid,
@@ -123,8 +101,8 @@ class MemoryRequest: public selfqueuelink
 
 		W64 get_owner_uuid() { return ownerUUID_; }
 
-		OP_TYPE get_type() { return opType_; }
-		void set_op_type(OP_TYPE type) { opType_ = type; }
+		OperationType get_type() { return opType_; }
+		void set_op_type(OperationType type) { opType_ = type; }
 
 		W64 get_init_cycles() { return cycles_; }
 
@@ -156,7 +134,7 @@ class MemoryRequest: public selfqueuelink
 			os << "robid[", robId_, "] ";
 			os << "init-cycle[", cycles_, "] ";
 			os << "ref-counter[", refCounter_, "] ";
-			os << "op-type[", memory_op_names[opType_], "] ";
+			os << "op-type[", OperationNames[opType_], "] ";
 			os << "isData[", isData_, "] ";
 			os << "ownerUUID[", ownerUUID_, "] ";
 			os << "ownerRIP[", (void*)ownerRIP_, "] ";
@@ -177,7 +155,7 @@ class MemoryRequest: public selfqueuelink
 		W64 ownerRIP_;
 		W64 ownerUUID_;
 		int refCounter_;
-		OP_TYPE opType_;
+		OperationType opType_;
 		stringbuf *history;
         Signal *coreSignal_;
 

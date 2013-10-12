@@ -162,7 +162,7 @@ class DirectoryController : public Controller {
 
         /* Simple function dispatcher to handle memory request */
         typedef bool (DirectoryController::*req_handler)(Message *msg);
-        req_handler req_handlers[NUM_MEMORY_OP];
+        req_handler req_handlers[Memory::NUM_OPERATION_TYPES];
 
         Signal read_miss;
         Signal write_miss;

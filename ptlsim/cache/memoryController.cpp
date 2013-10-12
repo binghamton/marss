@@ -101,10 +101,10 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 	memdebug("Received message in Memory controller: ", *message, endl);
 
 	if(message->hasData && message->request->get_type() !=
-			MEMORY_OP_UPDATE)
+			OPERATION_UPDATE)
 		return true;
 
-    if (message->request->get_type() == MEMORY_OP_EVICT) {
+    if (message->request->get_type() == OPERATION_EVICT) {
         /* We ignore all the evict messages */
         return true;
     }
@@ -115,7 +115,7 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 	 * memory update request to same line and if we can merge
 	 * those requests then merge them into one request
 	 */
-	if(message->request->get_type() == MEMORY_OP_UPDATE) {
+	if(message->request->get_type() == OPERATION_UPDATE) {
 		MemoryQueueEntry *entry;
 		foreach_list_mutable_backwards(pendingRequests_.list(),
 				entry, entry_t, nextentry_t) {
@@ -128,7 +128,7 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 				 * order
 				 */
 				if(!entry->inUse && entry->request->get_type() ==
-						MEMORY_OP_UPDATE) {
+						OPERATION_UPDATE) {
 					/*
 					 * We can merge the request, so in simulation
 					 * we dont have data, so don't do anything
@@ -199,13 +199,13 @@ bool MemoryController::access_completed_cb(void *arg)
 
     N_STAT_UPDATE(new_stats.bank_access, [bank_no]++, kernel);
     switch(queueEntry->request->get_type()) {
-        case MEMORY_OP_READ:
+        case OPERATION_READ:
             N_STAT_UPDATE(new_stats.bank_read, [bank_no]++, kernel);
             break;
-        case MEMORY_OP_WRITE:
+        case OPERATION_WRITE:
             N_STAT_UPDATE(new_stats.bank_write, [bank_no]++, kernel);
             break;
-        case MEMORY_OP_UPDATE:
+        case OPERATION_UPDATE:
             N_STAT_UPDATE(new_stats.bank_update, [bank_no]++, kernel);
             break;
         default:
@@ -253,7 +253,7 @@ bool MemoryController::wait_interconnect_cb(void *arg)
 	bool success = false;
 
 	/* Don't send response if its a memory update request */
-	if(queueEntry->request->get_type() == MEMORY_OP_UPDATE) {
+	if(queueEntry->request->get_type() == OPERATION_UPDATE) {
 		queueEntry->request->decRefCounter();
 		ADD_HISTORY_REM(queueEntry->request);
 		pendingRequests_.free(queueEntry);

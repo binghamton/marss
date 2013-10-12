@@ -300,7 +300,7 @@ bool BusInterconnect::broadcast_cb(void *arg)
      * if its full dont' broadcast
      */
     if(pendingRequests_.isFull() &&
-            queueEntry->request->get_type() != MEMORY_OP_UPDATE) {
+            queueEntry->request->get_type() != OPERATION_UPDATE) {
         memdebug("Bus cant do addr broadcast, pending queue full\n");
         marss_add_event(&broadcast_,
                 latency_, NULL);
@@ -350,8 +350,8 @@ bool BusInterconnect::broadcast_completed_cb(void *arg)
 
     /* now create an entry into pendingRequests_ */
     PendingQueueEntry *pendingEntry = NULL;
-    if(queueEntry->request->get_type() != MEMORY_OP_UPDATE &&
-			queueEntry->request->get_type() != MEMORY_OP_EVICT) {
+    if(queueEntry->request->get_type() != OPERATION_UPDATE &&
+			queueEntry->request->get_type() != OPERATION_EVICT) {
         pendingEntry = pendingRequests_.alloc();
         assert(pendingEntry);
         pendingEntry->request = queueEntry->request;
@@ -402,9 +402,9 @@ bool BusInterconnect::broadcast_completed_cb(void *arg)
             kernel);
     if(pendingEntry) {
         switch(pendingEntry->request->get_type()) {
-            case MEMORY_OP_READ: N_STAT_UPDATE(new_stats->broadcasts.read, ++, kernel);
+            case OPERATION_READ: N_STAT_UPDATE(new_stats->broadcasts.read, ++, kernel);
                                  break;
-            case MEMORY_OP_WRITE: N_STAT_UPDATE(new_stats->broadcasts.write, ++, kernel);
+            case OPERATION_WRITE: N_STAT_UPDATE(new_stats->broadcasts.write, ++, kernel);
                                   break;
             default: assert(0);
         }
@@ -515,9 +515,9 @@ bool BusInterconnect::data_broadcast_completed_cb(void *arg)
     W64 delay = sim_cycle - pendingEntry->initCycle;
     assert(delay > (W64)latency_);
     switch(pendingEntry->request->get_type()) {
-        case MEMORY_OP_READ: N_STAT_UPDATE(new_stats->broadcast_cycles.read, += delay, kernel);
+        case OPERATION_READ: N_STAT_UPDATE(new_stats->broadcast_cycles.read, += delay, kernel);
                              break;
-        case MEMORY_OP_WRITE: N_STAT_UPDATE(new_stats->broadcast_cycles.write, += delay, kernel);
+        case OPERATION_WRITE: N_STAT_UPDATE(new_stats->broadcast_cycles.write, += delay, kernel);
                               break;
         default: assert(0);
     }

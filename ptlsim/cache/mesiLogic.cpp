@@ -26,7 +26,7 @@
 
 #include <mesiLogic.h>
 
-#include <memoryRequest.h>
+#include "MemoryRequest.h"
 #include <coherentCache.h>
 
 #include <machine.h>
@@ -38,20 +38,20 @@ void MESILogic::handle_local_hit(CacheQueueEntry *queueEntry)
 {
     MESICacheLineState oldState = (MESICacheLineState)queueEntry->line->state;
     MESICacheLineState newState = NO_MESI_STATES;
-    OP_TYPE type                = queueEntry->request->get_type();
+    OperationType type                = queueEntry->request->get_type();
     bool kernel_req             = queueEntry->request->is_kernel();
 
     N_STAT_UPDATE(hit_state.cpu, [oldState]++,
                  kernel_req);
 
-    if(type == MEMORY_OP_EVICT) {
+    if(type == OPERATION_EVICT) {
         UPDATE_MESI_TRANS_STATS(oldState, MESI_INVALID, kernel_req);
         queueEntry->line->state = MESI_INVALID;
         controller->clear_entry_cb(queueEntry);
         return;
     }
 
-	if (type == MEMORY_OP_UPDATE && oldState != MESI_MODIFIED) {
+	if (type == OPERATION_UPDATE && oldState != MESI_MODIFIED) {
 		/* If we receive update from upper cache and local cache line state
 		 * is not MODIFIED, then send the response down because cache update
 		 * must have been initiated from this level, or lower level cache. */
@@ -70,7 +70,7 @@ void MESILogic::handle_local_hit(CacheQueueEntry *queueEntry)
             controller->cache_miss_cb(queueEntry);
             break;
         case MESI_EXCLUSIVE:
-            if(type == MEMORY_OP_WRITE) {
+            if(type == OPERATION_WRITE) {
                 if(controller->is_lowest_private()) {
                     queueEntry->line->state = MESI_MODIFIED;
                     queueEntry->sendTo      = queueEntry->sender;
@@ -87,14 +87,14 @@ void MESILogic::handle_local_hit(CacheQueueEntry *queueEntry)
                             kernel_req);
                     controller->cache_miss_cb(queueEntry);
                 }
-            } else if(type == MEMORY_OP_READ) {
+            } else if(type == OPERATION_READ) {
                 queueEntry->sendTo = queueEntry->sender;
                 assert(queueEntry->sendTo == queueEntry->sender);
                 controller->wait_interconnect_cb(queueEntry);
             }
             break;
         case MESI_SHARED:
-            if(type == MEMORY_OP_WRITE) {
+            if(type == OPERATION_WRITE) {
                 if(controller->is_lowest_private()) {
                     queueEntry->line->state = MESI_MODIFIED;
                     newState                = MESI_MODIFIED;
@@ -112,7 +112,7 @@ void MESILogic::handle_local_hit(CacheQueueEntry *queueEntry)
                             kernel_req);
                     controller->cache_miss_cb(queueEntry);
                 }
-            } else if(type == MEMORY_OP_READ) {
+            } else if(type == OPERATION_READ) {
                 queueEntry->sendTo = queueEntry->sender;
                 controller->wait_interconnect_cb(queueEntry);
             }
@@ -143,12 +143,12 @@ void MESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
 {
     MESICacheLineState oldState = (MESICacheLineState)queueEntry->line->state;
     MESICacheLineState newState = NO_MESI_STATES;
-    OP_TYPE type                = queueEntry->request->get_type();
+    OperationType type                = queueEntry->request->get_type();
     bool kernel_req             = queueEntry->request->is_kernel();
 
     N_STAT_UPDATE(hit_state.snoop, [oldState]++,
                  kernel_req);
-    if(type == MEMORY_OP_EVICT) {
+    if(type == OPERATION_EVICT) {
         if(controller->is_lowest_private())
             controller->send_evict_to_upper(queueEntry);
         UPDATE_MESI_TRANS_STATS(oldState, MESI_INVALID, kernel_req);
@@ -157,7 +157,7 @@ void MESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
         return;
     }
 
-    if (type == MEMORY_OP_UPDATE && !controller->is_lowest_private()) {
+    if (type == OPERATION_UPDATE && !controller->is_lowest_private()) {
         queueEntry->line->state = *(MESICacheLineState*)(queueEntry->m_arg);
         UPDATE_MESI_TRANS_STATS(oldState, queueEntry->line->state, kernel_req);
         controller->clear_entry_cb(queueEntry);
@@ -175,17 +175,17 @@ void MESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
             newState                 = MESI_INVALID;
             break;
         case MESI_EXCLUSIVE:
-            if(type == MEMORY_OP_READ) {
+            if(type == OPERATION_READ) {
                 queueEntry->line->state = MESI_SHARED;
                 queueEntry->isShared    = true;
                 newState                = MESI_SHARED;
                 controller->send_update_to_upper(queueEntry);
-            } else if(type == MEMORY_OP_WRITE) {
+            } else if(type == OPERATION_WRITE) {
                 if(controller->is_lowest_private())
                     controller->send_evict_to_upper(queueEntry);
                 queueEntry->line->state = MESI_INVALID;
                 newState = MESI_INVALID;
-            } else if(type == MEMORY_OP_UPDATE) {
+            } else if(type == OPERATION_UPDATE) {
                 newState = *(MESICacheLineState*)(queueEntry->m_arg);
                 queueEntry->line->state = newState;
             } else {
@@ -193,15 +193,15 @@ void MESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
             }
             break;
         case MESI_SHARED:
-            if(type == MEMORY_OP_READ) {
+            if(type == OPERATION_READ) {
                 queueEntry->isShared = true;
                 newState             = MESI_SHARED;
-            } else if(type == MEMORY_OP_WRITE) {
+            } else if(type == OPERATION_WRITE) {
                 if(controller->is_lowest_private())
                     controller->send_evict_to_upper(queueEntry);
                 queueEntry->line->state = MESI_INVALID;
                 newState                = MESI_INVALID;
-            } else if(type == MEMORY_OP_UPDATE) {
+            } else if(type == OPERATION_UPDATE) {
                 newState = *(MESICacheLineState*)(queueEntry->m_arg);
                 queueEntry->line->state = newState;
             } else {
@@ -210,16 +210,16 @@ void MESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
             break;
         case MESI_MODIFIED:
             controller->send_update_to_lower(queueEntry);
-            if(type == MEMORY_OP_READ) {
+            if(type == OPERATION_READ) {
                 queueEntry->line->state = MESI_SHARED;
                 queueEntry->isShared    = true;
                 newState                = MESI_SHARED;
-            } else if(type == MEMORY_OP_WRITE) {
+            } else if(type == OPERATION_WRITE) {
                 if(controller->is_lowest_private())
                     controller->send_evict_to_upper(queueEntry);
                 queueEntry->line->state = MESI_INVALID;
                 newState                = MESI_INVALID;
-            } else if(type == MEMORY_OP_UPDATE) {
+            } else if(type == OPERATION_UPDATE) {
                 newState = *(MESICacheLineState*)(queueEntry->m_arg);
                 queueEntry->line->state = newState;
             } else {
@@ -243,8 +243,8 @@ void MESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
 void MESILogic::handle_interconn_miss(CacheQueueEntry *queueEntry)
 {
     /* On cache miss we dont perform anything */
-    if (queueEntry->request->get_type() != MEMORY_OP_EVICT &&
-            queueEntry->request->get_type() != MEMORY_OP_UPDATE) {
+    if (queueEntry->request->get_type() != OPERATION_EVICT &&
+            queueEntry->request->get_type() != OPERATION_UPDATE) {
         queueEntry->eventFlags[CACHE_WAIT_INTERCONNECT_EVENT]++;
         queueEntry->sendTo = controller->get_lower_intrconn();
         controller->wait_interconnect_cb(queueEntry);
@@ -258,7 +258,7 @@ void MESILogic::handle_cache_evict(CacheQueueEntry *queueEntry)
     MESICacheLineState oldState = (MESICacheLineState)queueEntry->line->state;
     /*
      * if evicting line state is modified, then create a new
-     * memory request of type MEMORY_OP_UPDATE and send it to
+     * memory request of type OPERATION_UPDATE and send it to
      * lower cache/memory
      */
     if(oldState == MESI_MODIFIED && controller->is_lowest_private()) {
@@ -271,7 +271,7 @@ void MESILogic::handle_cache_insert(CacheQueueEntry *queueEntry, W64 oldTag)
     MESICacheLineState oldState = (MESICacheLineState)queueEntry->line->state;
     /*
      * if evicting line state is modified, then create a new
-     * memory request of type MEMORY_OP_UPDATE and send it to
+     * memory request of type OPERATION_UPDATE and send it to
      * lower cache/memory
      */
     if(oldState == MESI_MODIFIED) {
@@ -294,7 +294,7 @@ void MESILogic::complete_request(CacheQueueEntry *queueEntry,
     assert(message.hasData);
 
     if(!controller->is_lowest_private()) {
-        if(message.request->get_type() == MEMORY_OP_EVICT) {
+        if(message.request->get_type() == OPERATION_EVICT) {
             queueEntry->line->state = MESI_INVALID;
         } else if(controller->is_private()) {
             /*
@@ -321,17 +321,17 @@ MESICacheLineState MESILogic::get_new_state(
 {
     MESICacheLineState oldState = (MESICacheLineState)queueEntry->line->state;
     MESICacheLineState newState = MESI_INVALID;
-    OP_TYPE type                = queueEntry->request->get_type();
+    OperationType type                = queueEntry->request->get_type();
     bool kernel_req             = queueEntry->request->is_kernel();
 
-    if(type == MEMORY_OP_EVICT) {
+    if(type == OPERATION_EVICT) {
         if(controller->is_lowest_private())
             controller->send_evict_to_upper(queueEntry);
         UPDATE_MESI_TRANS_STATS(oldState, MESI_INVALID, kernel_req);
         return MESI_INVALID;
     }
 
-    if(type == MEMORY_OP_UPDATE) {
+    if(type == OPERATION_UPDATE) {
         ptl_logfile << "Queueentry: " << *queueEntry << endl;
         assert(0);
     }
@@ -339,17 +339,17 @@ MESICacheLineState MESILogic::get_new_state(
     switch(oldState) {
         case MESI_INVALID:
             if(isShared) {
-                if(type == MEMORY_OP_READ) {
+                if(type == OPERATION_READ) {
                     newState = MESI_SHARED;
-                } else { //if(type == MEMORY_OP_WRITE)
+                } else { //if(type == OPERATION_WRITE)
                     assert(0);
                 }
             } else {
-                if(type == MEMORY_OP_READ)
+                if(type == OPERATION_READ)
                     newState = MESI_EXCLUSIVE;
-                else if(type == MEMORY_OP_WRITE)
+                else if(type == OPERATION_WRITE)
                     newState = MESI_MODIFIED;
-                else if(type == MEMORY_OP_EVICT)
+                else if(type == OPERATION_EVICT)
                     newState = MESI_INVALID;
                 else
                     assert(0);
@@ -357,7 +357,7 @@ MESICacheLineState MESILogic::get_new_state(
             break;
         case MESI_EXCLUSIVE:
             if(isShared) {
-                if(type == MEMORY_OP_READ)
+                if(type == OPERATION_READ)
                     newState = MESI_SHARED;
                 else {
                     if(controller->is_lowest_private())
@@ -365,11 +365,11 @@ MESICacheLineState MESILogic::get_new_state(
                     newState = MESI_INVALID;
                 }
             } else {
-                if(type == MEMORY_OP_READ)
+                if(type == OPERATION_READ)
                     newState = MESI_EXCLUSIVE;
-                else if(type == MEMORY_OP_WRITE)
+                else if(type == OPERATION_WRITE)
                     newState = MESI_MODIFIED;
-                else if(type == MEMORY_OP_EVICT) {
+                else if(type == OPERATION_EVICT) {
                     if(controller->is_lowest_private())
                         controller->send_evict_to_upper(queueEntry);
                     newState = MESI_INVALID;
@@ -380,18 +380,18 @@ MESICacheLineState MESILogic::get_new_state(
             break;
         case MESI_SHARED:
             if(isShared) {
-                if(type == MEMORY_OP_READ)
+                if(type == OPERATION_READ)
                     newState = MESI_SHARED;
-                else if(type == MEMORY_OP_WRITE)
+                else if(type == OPERATION_WRITE)
                     assert(0);
                 else
                     assert(0);
             } else {
-                if(type == MEMORY_OP_READ)
+                if(type == OPERATION_READ)
                     newState = MESI_SHARED;
-                else if(type == MEMORY_OP_WRITE)
+                else if(type == OPERATION_WRITE)
                     newState = MESI_MODIFIED;
-                else if(type == MEMORY_OP_EVICT) {
+                else if(type == OPERATION_EVICT) {
                     if(controller->is_lowest_private())
                         controller->send_evict_to_upper(queueEntry);
                     newState = MESI_INVALID;
@@ -402,18 +402,18 @@ MESICacheLineState MESILogic::get_new_state(
             break;
         case MESI_MODIFIED:
             if(isShared) {
-                if(type == MEMORY_OP_READ)
+                if(type == OPERATION_READ)
                     newState = MESI_SHARED;
-                else if(type == MEMORY_OP_WRITE)
+                else if(type == OPERATION_WRITE)
                     assert(0);
                 else
                     assert(0);
             } else {
-                if(type == MEMORY_OP_READ)
+                if(type == OPERATION_READ)
                     newState = MESI_MODIFIED;
-                else if(type == MEMORY_OP_WRITE)
+                else if(type == OPERATION_WRITE)
                     newState = MESI_MODIFIED;
-                else if(type == MEMORY_OP_EVICT) {
+                else if(type == OPERATION_EVICT) {
                     if(controller->is_lowest_private())
                         controller->send_evict_to_upper(queueEntry);
                     newState = MESI_INVALID;

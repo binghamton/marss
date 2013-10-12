@@ -34,7 +34,7 @@
 #include <ptlhwdef.h>
 #endif
 
-#include <memoryRequest.h>
+#include "MemoryRequest.h"
 #include <statelist.h>
 #include <memoryHierarchy.h>
 
@@ -50,7 +50,7 @@ void MemoryRequest::init(W8 coreId,
 		bool isInstruction,
 		W64 ownerRIP,
 		W64 ownerUUID,
-		OP_TYPE opType)
+		OperationType opType)
 {
 	coreId_ = coreId;
 	threadId_ = threadId;
@@ -95,11 +95,11 @@ bool MemoryRequest::is_same(W8 coreid,
 		bool is_icache,
 		bool is_write)
 {
-	OP_TYPE type;
+	OperationType type;
 	if(is_write)
-		type = MEMORY_OP_WRITE;
+		type = OPERATION_WRITE;
 	else
-		type = MEMORY_OP_READ;
+		type = OPERATION_READ;
 	if(coreId_ == coreid &&
 			threadId_ == threadid &&
 			robId_ == robid &&

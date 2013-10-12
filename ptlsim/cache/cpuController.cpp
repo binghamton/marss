@@ -64,7 +64,7 @@ bool CPUController::handle_interconnect_cb(void *arg)
 	memdebug("Received message in controller: ", get_name(), endl);
 
 	// ignore the evict message
-	if unlikely (message->request->get_type() == MEMORY_OP_EVICT)
+	if unlikely (message->request->get_type() == OPERATION_EVICT)
 		return true;
 
 	CPUControllerQueueEntry *queueEntry = find_entry(message->request);
@@ -215,7 +215,7 @@ int CPUController::access_fast_path(Interconnect *interconnect,
 			N_STAT_UPDATE(stats.cpurequest.stall.read.dependency, ++, kernel_req);
 		}
 		else  {
-			if(queueEntry->request->get_type() == MEMORY_OP_READ) {
+			if(queueEntry->request->get_type() == OPERATION_READ) {
 				N_STAT_UPDATE(stats.cpurequest.stall.read.dependency, ++, kernel_req);
             } else {
 				N_STAT_UPDATE(stats.cpurequest.stall.write.dependency, ++, kernel_req);
@@ -402,7 +402,7 @@ bool CPUController::queue_access_cb(void *arg)
 			N_STAT_UPDATE(stats.cpurequest.stall.read.dependency, ++, kernel_req);
 		}
 		else  {
-			if(queueEntry->request->get_type() == MEMORY_OP_READ) {
+			if(queueEntry->request->get_type() == OPERATION_READ) {
 				N_STAT_UPDATE(stats.cpurequest.stall.read.dependency, ++, kernel_req);
             } else {
 				N_STAT_UPDATE(stats.cpurequest.stall.write.dependency, ++, kernel_req);

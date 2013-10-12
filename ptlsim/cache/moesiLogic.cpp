@@ -26,7 +26,7 @@
 
 #include <moesiLogic.h>
 
-#include <memoryRequest.h>
+#include "MemoryRequest.h"
 #include <coherentCache.h>
 
 #include <machine.h>
@@ -38,18 +38,18 @@ void MOESILogic::handle_local_hit(CacheQueueEntry *queueEntry)
 {
     MOESICacheLineState *state = (MOESICacheLineState*)(&queueEntry->line->state);
     MOESICacheLineState oldState = *state;
-    OP_TYPE type = queueEntry->request->get_type();
+    OperationType type = queueEntry->request->get_type();
     bool k_req = queueEntry->request->is_kernel();
 
     N_STAT_UPDATE(hit_state, [oldState]++, k_req);
 
-    if (type == MEMORY_OP_EVICT) {
+    if (type == OPERATION_EVICT) {
         *state = MOESI_INVALID;
         controller->clear_entry_cb(queueEntry);
         return;
     }
 
-	if (type == MEMORY_OP_UPDATE && oldState != MOESI_MODIFIED) {
+	if (type == OPERATION_UPDATE && oldState != MOESI_MODIFIED) {
 		/* If we receive update from upper cache and local cache line state
 		 * is not MODIFIED, then send the response down because cache update
 		 * must have been initiated from this level, or lower level cache. */
@@ -77,9 +77,9 @@ void MOESILogic::handle_local_hit(CacheQueueEntry *queueEntry)
         case MOESI_OWNER:
         case MOESI_EXCLUSIVE:
         case MOESI_SHARED:
-            if (type == MEMORY_OP_READ) {
+            if (type == OPERATION_READ) {
                 send_response(queueEntry, queueEntry->sender);
-            } else if (type == MEMORY_OP_WRITE) {
+            } else if (type == OPERATION_WRITE) {
                 if (controller->is_lowest_private()) {
                     /* We need to update Directory, and directory
                      * will send EVICT msg to other caches */
@@ -115,7 +115,7 @@ void MOESILogic::handle_local_miss(CacheQueueEntry *queueEntry)
 
     /* Go to directory if its lowest private and not UPDATE */
     if (controller->is_lowest_private() &&
-            queueEntry->request->get_type() != MEMORY_OP_UPDATE) {
+            queueEntry->request->get_type() != OPERATION_UPDATE) {
         queueEntry->dest = controller->get_directory();
     } else {
         queueEntry->dest = controller->get_lower_cont();
@@ -130,7 +130,7 @@ void MOESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
 {
     MOESICacheLineState *state = (MOESICacheLineState*)(&queueEntry->line->state);
     MOESICacheLineState oldState = *state;
-    OP_TYPE type = queueEntry->request->get_type();
+    OperationType type = queueEntry->request->get_type();
     bool k_req = queueEntry->request->is_kernel();
 
     // By default we mark the queueEntry's shared flat to false
@@ -139,16 +139,16 @@ void MOESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
 
     memdebug("MOESI:: Interconn Hit: " << *queueEntry << endl);
 
-    assert(type != MEMORY_OP_WRITE);
+    assert(type != OPERATION_WRITE);
 
-    if (!controller->is_lowest_private() && type == MEMORY_OP_EVICT) {
+    if (!controller->is_lowest_private() && type == OPERATION_EVICT) {
         *state = MOESI_INVALID;
         UPDATE_MOESI_TRANS_STATS(oldState, *state, k_req);
         controller->clear_entry_cb(queueEntry);
         return;
     }
 
-    if (!controller->is_lowest_private() && type == MEMORY_OP_UPDATE) {
+    if (!controller->is_lowest_private() && type == OPERATION_UPDATE) {
         *state = *(MOESICacheLineState*)(queueEntry->m_arg);
         UPDATE_MOESI_TRANS_STATS(oldState, *state, k_req);
         controller->clear_entry_cb(queueEntry);
@@ -165,19 +165,19 @@ void MOESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
 
         case MOESI_MODIFIED:
         case MOESI_OWNER:
-            if (type == MEMORY_OP_READ) {
+            if (type == OPERATION_READ) {
                 *state = MOESI_OWNER;
                 queueEntry->isShared = true;
 
                 if (controller->is_lowest_private())
                     controller->send_update_to_upper(queueEntry);
-            } else if (type == MEMORY_OP_WRITE) {
+            } else if (type == OPERATION_WRITE) {
                 *state = MOESI_INVALID;
 
                 if (controller->is_lowest_private())
                     send_evict(queueEntry, -1, 1);
 
-            } else if (type == MEMORY_OP_UPDATE) {
+            } else if (type == OPERATION_UPDATE) {
                 if (controller->is_lowest_private()) {
                     /* In case of multiple directory controllers we
                      * check if message argument is not set to this
@@ -195,7 +195,7 @@ void MOESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
                 } else {
                     *state = *(MOESICacheLineState*)(queueEntry->m_arg);
                 }
-            } else if (type == MEMORY_OP_EVICT) {
+            } else if (type == OPERATION_EVICT) {
                 *state = MOESI_INVALID;
                 if (controller->is_lowest_private()) {
                     send_evict(queueEntry);
@@ -204,20 +204,20 @@ void MOESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
             break;
 
         case MOESI_EXCLUSIVE:
-            if (type == MEMORY_OP_READ) {
+            if (type == OPERATION_READ) {
                 /* In this case we dont need to update directory. */
                 *state = MOESI_SHARED;
                 queueEntry->isShared = true;
                 if (controller->is_lowest_private())
                     controller->send_update_to_upper(queueEntry);
-            } else if (type == MEMORY_OP_WRITE) {
+            } else if (type == OPERATION_WRITE) {
                 *state = MOESI_INVALID;
                 if (controller->is_lowest_private())
                     send_evict(queueEntry, -1, 1);
-            } else if (type == MEMORY_OP_UPDATE) {
+            } else if (type == OPERATION_UPDATE) {
                 *state = *(MOESICacheLineState*)(queueEntry->m_arg);
                 controller->clear_entry_cb(queueEntry);
-            } else if (type == MEMORY_OP_EVICT) {
+            } else if (type == OPERATION_EVICT) {
                 *state = MOESI_INVALID;
                 if (controller->is_lowest_private())
                     send_evict(queueEntry);
@@ -225,16 +225,16 @@ void MOESILogic::handle_interconn_hit(CacheQueueEntry *queueEntry)
             break;
 
         case MOESI_SHARED:
-            if (type == MEMORY_OP_READ) {
+            if (type == OPERATION_READ) {
                 queueEntry->isShared = true;
-            } else if (type == MEMORY_OP_WRITE) {
+            } else if (type == OPERATION_WRITE) {
                 *state = MOESI_INVALID;
                 if(controller->is_lowest_private())
                     send_evict(queueEntry, -1, 1);
-            } else if (type == MEMORY_OP_UPDATE) {
+            } else if (type == OPERATION_UPDATE) {
                 *state = *(MOESICacheLineState*)(queueEntry->m_arg);
                 controller->clear_entry_cb(queueEntry);
-            } else if (type == MEMORY_OP_EVICT) {
+            } else if (type == OPERATION_EVICT) {
                 *state = MOESI_INVALID;
                 if (controller->is_lowest_private())
                     send_evict(queueEntry);
@@ -268,7 +268,7 @@ void MOESILogic::handle_interconn_miss(CacheQueueEntry *queueEntry)
 
     /* If we get 'EVICT' message and our cache line is in invalid
      * state then we can ignore this request without an error*/
-    if (queueEntry->request->get_type() == MEMORY_OP_EVICT) {
+    if (queueEntry->request->get_type() == OPERATION_EVICT) {
         queueEntry->dest = controller->get_directory();
     } else {
         send_evict(queueEntry, -1, 1);
@@ -313,7 +313,7 @@ void MOESILogic::complete_request(CacheQueueEntry *queueEntry,
 {
     MOESICacheLineState *state = (MOESICacheLineState*)(&queueEntry->line->state);
     MOESICacheLineState oldState = *state;
-    OP_TYPE type = queueEntry->request->get_type();
+    OperationType type = queueEntry->request->get_type();
     bool k_req = queueEntry->request->is_kernel();
     bool isShared = message.isShared;
 
@@ -323,7 +323,7 @@ void MOESILogic::complete_request(CacheQueueEntry *queueEntry,
         switch (oldState) {
             case MOESI_INVALID:
                 if (isShared) {
-                    if (type == MEMORY_OP_READ) {
+                    if (type == OPERATION_READ) {
                         *state = MOESI_SHARED;
                     } else {
                         // Other states are not possible
@@ -331,11 +331,11 @@ void MOESILogic::complete_request(CacheQueueEntry *queueEntry,
                     }
                 } else {
                     switch (type) {
-                        case MEMORY_OP_READ:
+                        case OPERATION_READ:
                             *state = MOESI_EXCLUSIVE; break;
-                        case MEMORY_OP_WRITE:
+                        case OPERATION_WRITE:
                             *state = MOESI_MODIFIED; break;
-                        case MEMORY_OP_EVICT:
+                        case OPERATION_EVICT:
                             *state = MOESI_INVALID; break;
                         default: assert(0);
                     }
@@ -351,7 +351,7 @@ void MOESILogic::complete_request(CacheQueueEntry *queueEntry,
             case MOESI_SHARED:
                 /* On read access we dont need to treat it as cache miss
                  * so this request must be write access.*/
-                if (type == MEMORY_OP_WRITE)
+                if (type == OPERATION_WRITE)
                     *state = MOESI_MODIFIED;
                 else  {
                     memoryHierarchy->get_machine().dump_state(ptl_logfile);
@@ -369,7 +369,7 @@ void MOESILogic::complete_request(CacheQueueEntry *queueEntry,
         }
 
     } else {
-        if (message.request->get_type() == MEMORY_OP_EVICT) {
+        if (message.request->get_type() == OPERATION_EVICT) {
             queueEntry->line->state = MOESI_INVALID;
         } else if (controller->is_private()) {
             /* Message's argument holds correct line state */
@@ -453,7 +453,7 @@ void MOESILogic::send_evict(CacheQueueEntry *queueEntry, W64 oldTag,
     if (with_directory) {
         /* First send Evict message to directory */
         queueEntry->dest = controller->get_directory();
-        controller->send_message(queueEntry, lower, MEMORY_OP_EVICT,
+        controller->send_message(queueEntry, lower, OPERATION_EVICT,
                 oldTag);
     }
 
@@ -470,7 +470,7 @@ void MOESILogic::send_update(CacheQueueEntry *queueEntry, W64 oldTag)
 
     /* First send Evict message to directory */
     queueEntry->dest = controller->get_directory();
-    controller->send_message(queueEntry, lower, MEMORY_OP_UPDATE,
+    controller->send_message(queueEntry, lower, OPERATION_UPDATE,
             oldTag);
 
     /* Now send Evict message to Upper level cache */

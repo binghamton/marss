@@ -33,7 +33,7 @@
 
 #include <ptlsim.h>
 #include <machine.h>
-#include <memoryRequest.h>
+#include "MemoryRequest.h"
 #include <controller.h>
 #include <interconnect.h>
 

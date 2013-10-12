@@ -98,13 +98,13 @@ DirectoryController::DirectoryController(W8 idx, const char *name,
 {
     memoryHierarchy_->add_cache_mem_controller(this);
 
-    req_handlers[MEMORY_OP_READ]   = &DirectoryController::
+    req_handlers[OPERATION_READ]   = &DirectoryController::
         handle_read_miss;
-    req_handlers[MEMORY_OP_WRITE]  = &DirectoryController::
+    req_handlers[OPERATION_WRITE]  = &DirectoryController::
         handle_write_miss;
-    req_handlers[MEMORY_OP_UPDATE] = &DirectoryController::
+    req_handlers[OPERATION_UPDATE] = &DirectoryController::
         handle_update;
-    req_handlers[MEMORY_OP_EVICT]  = &DirectoryController::
+    req_handlers[OPERATION_EVICT]  = &DirectoryController::
         handle_evict;
 
     SET_SIGNAL_CB(name, "_Read_miss", read_miss,
@@ -539,7 +539,7 @@ bool DirectoryController::send_update_cb(void *arg)
             queueEntry->request->get_coreid());
     newEntry->request->init(queueEntry->request);
     newEntry->request->incRefCounter();
-    newEntry->request->set_op_type(MEMORY_OP_UPDATE);
+    newEntry->request->set_op_type(OPERATION_UPDATE);
     newEntry->entry  = queueEntry->entry;
     newEntry->origin = (queueEntry->cont) ? queueEntry->idx : -1;
 
@@ -597,7 +597,7 @@ bool DirectoryController::send_evict_cb(void *arg)
                 queueEntry->request->get_coreid());
         newEntry->request->init(queueEntry->request);
         newEntry->request->incRefCounter();
-        newEntry->request->set_op_type(MEMORY_OP_EVICT);
+        newEntry->request->set_op_type(OPERATION_EVICT);
         newEntry->entry  = queueEntry->entry;
         newEntry->origin = (queueEntry->cont) ? queueEntry->idx : -1;
 
@@ -632,13 +632,13 @@ bool DirectoryController::send_response_cb(void *arg)
 
 	queueEntry->entry->locked = 0;
 
-    if (queueEntry->request->get_type() == MEMORY_OP_WRITE) {
+    if (queueEntry->request->get_type() == OPERATION_WRITE) {
         queueEntry->entry->owner = queueEntry->cont->idx;
         queueEntry->entry->dirty = 1;
     }
 
     if (!queueEntry->shared &&
-            queueEntry->request->get_type() == MEMORY_OP_READ) {
+            queueEntry->request->get_type() == OPERATION_READ) {
         /* When we have only one cached entry then we do assign
          * that as owner untill some writer to same cache line shows up */
         queueEntry->entry->owner = queueEntry->cont->idx;
@@ -690,7 +690,7 @@ bool DirectoryController::send_msg_cb(void *arg)
     if (!success) {
         int delay = interconn_->get_delay();
         if (delay == 0) delay = AVG_WAIT_DELAY;
-        if (queueEntry->request->get_type() == MEMORY_OP_EVICT)
+        if (queueEntry->request->get_type() == OPERATION_EVICT)
             delay = 1;
         marss_add_event(&send_msg, delay, queueEntry);
         return true;
@@ -813,7 +813,7 @@ DirectoryEntry* DirectoryController::get_directory_entry(
             newEntry->request->init(req);
             newEntry->request->incRefCounter();
             newEntry->request->set_physical_address(old_tag);
-            newEntry->request->set_op_type(MEMORY_OP_EVICT);
+            newEntry->request->set_op_type(OPERATION_EVICT);
             newEntry->entry = get_dummy_entry(entry, old_tag);
             newEntry->free_on_success = 1;
 
@@ -882,10 +882,10 @@ void DirectoryController::wakeup_dependent(DirContBufferEntry *queueEntry)
 
         if (!sig) {
             switch (depEntry->request->get_type()) {
-                case MEMORY_OP_READ:   sig = &read_miss; break;
-                case MEMORY_OP_WRITE:  sig = &write_miss; break;
-                case MEMORY_OP_UPDATE: sig = &update; break;
-                case MEMORY_OP_EVICT:  sig = &evict; break;
+                case OPERATION_READ:   sig = &read_miss; break;
+                case OPERATION_WRITE:  sig = &write_miss; break;
+                case OPERATION_UPDATE: sig = &update; break;
+                case OPERATION_EVICT:  sig = &evict; break;
                 default: assert(0);
             }
         }
