@@ -679,7 +679,7 @@ def generate_cache_logic(config, options):
         of.write("\n#include <globals.h>\n")
         of.write("#include <ptlsim.h>\n")
         of.write("#include <memoryHierarchy.h>\n")
-        of.write("#include <memoryRequest.h>\n")
+        of.write("#include <MemoryRequest.h>\n")
         of.write("#include <cacheLines.h>\n")
         of.write("\nnamespace Memory {\n\n")
         typedefs = {}
