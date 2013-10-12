@@ -30,9 +30,9 @@ namespace {
                 queueEntry = new CacheQueueEntry();
                 queueEntry->init();
 
-                MemoryRequest *request = memoryHierarchy_->get_free_request(0);
+                Memory::MemoryRequest *request = new Memory::MemoryRequest();
                 request->init(0, 0, 0x1234567, 0, 0, true, 0xffffff0,
-                        0, MEMORY_OP_READ);
+                        0, OPERATION_READ);
                 queueEntry->request = request;
 
                 line = new CacheLine();
@@ -125,10 +125,10 @@ namespace {
             }
     };
 
-#define mread   MEMORY_OP_READ
-#define mwrite  MEMORY_OP_WRITE
-#define mupdate MEMORY_OP_UPDATE
-#define mevict  MEMORY_OP_EVICT
+#define mread   OPERATION_READ
+#define mwrite  OPERATION_WRITE
+#define mupdate OPERATION_UPDATE
+#define mevict  OPERATION_EVICT
 
 #define mod MESI_MODIFIED
 #define exc MESI_EXCLUSIVE
@@ -139,23 +139,23 @@ namespace {
 #define qe cont->queueEntry
 
 #define set_req_line(type, l_state) \
-    req->set_op_type(type); st = l_state;
+    req->setType(type); st = l_state;
 
 #define execute_req(type, l_state, fn) \
     set_req_line(type, l_state); \
     cont->mesi->fn(cont->queueEntry);
 
 #define execute_read(l_state, fn) \
-    execute_req(MEMORY_OP_READ, l_state, fn)
+    execute_req(OPERATION_READ, l_state, fn)
 
 #define execute_write(l_state, fn) \
-    execute_req(MEMORY_OP_WRITE, l_state, fn)
+    execute_req(OPERATION_WRITE, l_state, fn)
 
 #define execute_update(l_state, fn) \
-    execute_req(MEMORY_OP_UPDATE, l_state, fn)
+    execute_req(OPERATION_UPDATE, l_state, fn)
 
 #define execute_evict(l_state, fn) \
-    execute_req(MEMORY_OP_EVICT, l_state, fn)
+    execute_req(OPERATION_EVICT, l_state, fn)
 
 #define r() cont->reset();
 
@@ -373,7 +373,7 @@ namespace {
     }
 
 #define creq(type, state, shared) { \
-    req->set_op_type(type); \
+    req->setType(type); \
     Message m; m.isShared = shared; m.hasData = 1; \
     MESICacheLineState t_state = state; \
     m.arg = &t_state; \

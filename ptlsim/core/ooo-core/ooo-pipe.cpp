@@ -133,9 +133,7 @@ itlb_walk_finish:
         return;
     }
 
-    Memory::MemoryRequest *request = core.memoryHierarchy->get_free_request(core.get_coreid());
-    assert(request != NULL);
-
+    Memory::MemoryRequest *request = new Memory::MemoryRequest();
     request->init(core.get_coreid(), threadid, pteaddr, 0, sim_cycle,
             true, 0, 0, Memory::OPERATION_READ);
     request->set_coreSignal(&core.icache_signal);
@@ -596,9 +594,7 @@ bool ThreadContext::fetch() {
             bool hit;
             assert(!waiting_for_icache_fill);
 
-            Memory::MemoryRequest *request = core.memoryHierarchy->get_free_request(core.get_coreid());
-            assert(request != NULL);
-
+            Memory::MemoryRequest *request = new Memory::MemoryRequest();
             request->init(core.get_coreid(), threadid, physaddr, 0, sim_cycle,
                     true, 0, 0, Memory::OPERATION_READ);
             request->set_coreSignal(&core.icache_signal);
@@ -2174,9 +2170,7 @@ int ReorderBufferEntry::commit() {
               */
             assert(lsq->physaddr);
 
-            Memory::MemoryRequest *request = core.memoryHierarchy->get_free_request(core.get_coreid());
-            assert(request != NULL);
-
+            Memory::MemoryRequest *request = new Memory::MemoryRequest();
             request->init(core.get_coreid(), threadid, lsq->physaddr << 3, 0,
                     sim_cycle, false, uop.rip.rip, uop.uuid,
                     Memory::OPERATION_WRITE);

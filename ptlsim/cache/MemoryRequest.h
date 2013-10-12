@@ -23,13 +23,18 @@
 #include <globals.h>
 #include <superstl.h>
 #include <statelist.h>
-#include "MemoryOperations.h"
 #include <cacheConstants.h>
+
+
 #include <cstdint>
+
+#include "MemoryOperations.h"
+#include "PoolAllocator.h"
 
 namespace Memory {
 
 class MemoryRequest: public selfqueuelink {
+  static PoolAllocator<MemoryRequest, 1024> Allocator;
   OperationType operationType;
 
   uint64_t physicalAddress_;
@@ -49,6 +54,17 @@ class MemoryRequest: public selfqueuelink {
 public:
   MemoryRequest() {
     reset();
+  }
+
+  // Quickly deallocate a MemoryRequest.
+  void operator delete(void* pointer, size_t count) {
+    Allocator.deallocate((MemoryRequest*) pointer);
+  }
+
+  // Quickly allocate a MemoryRequest.
+  void* operator new(size_t count) {
+    assert(count == sizeof(MemoryRequest));
+    return Allocator.allocate(1);
   }
 
   // Gets the memory operation type (enum).
@@ -182,66 +198,6 @@ public:
 static inline ostream& operator <<(ostream& os, const MemoryRequest& request)
 {
   return request.print(os);
-}
-
-class RequestPool: public array<MemoryRequest,REQUEST_POOL_SIZE>
-{
-  public:
-    RequestPool();
-    MemoryRequest* get_free_request();
-    void garbage_collection();
-
-    StateList& used_list() {
-      return usedRequestsList_;
-    }
-
-    void print(ostream& os) {
-      os << "Request pool : size[", size_, "]\n";
-      os << "used requests : count[", usedRequestsList_.count,
-         "]\n", flush;
-
-      MemoryRequest *usedReq;
-      foreach_list_mutable(usedRequestsList_, usedReq, \
-          entry, nextentry) {
-        assert(usedReq);
-        os << *usedReq , endl, flush;
-      }
-
-      os << "free request : count[", freeRequestList_.count,
-         "]\n", flush;
-
-      MemoryRequest *freeReq;
-      foreach_list_mutable(freeRequestList_, freeReq, \
-          entry_, nextentry_) {
-        os << *freeReq, endl, flush;
-      }
-
-      os << "---- End: Request pool\n";
-    }
-
-  private:
-    int size_;
-    StateList freeRequestList_;
-    StateList usedRequestsList_;
-
-    void freeRequest(MemoryRequest* request);
-
-    bool isEmpty()
-    {
-      return (freeRequestList_.empty());
-    }
-
-    bool isPoolLow()
-    {
-      return (freeRequestList_.count < (
-            REQUEST_POOL_SIZE * REQUEST_POOL_LOW_RATIO));
-    }
-};
-
-static inline ostream& operator <<(ostream& os, RequestPool &pool)
-{
-  pool.print(os);
-  return os;
 }
 
 };

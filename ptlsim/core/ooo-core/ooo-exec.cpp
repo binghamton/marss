@@ -1754,9 +1754,7 @@ int ReorderBufferEntry::issueload(LoadStoreQueueEntry& state, Waddr& origaddr, W
         state.sfr_bytemask = 0;
     }
 
-    Memory::MemoryRequest *request = core.memoryHierarchy->get_free_request(core.get_coreid());
-    assert(request != NULL);
-
+    Memory::MemoryRequest *request = new Memory::MemoryRequest();
     request->init(core.get_coreid(), threadid, state.physaddr << 3, idx, sim_cycle,
             false, uop.rip.rip, uop.uuid, Memory::OPERATION_READ);
     request->set_coreSignal(&core.dcache_signal);
@@ -2061,9 +2059,7 @@ rob_cont:
         /* Cache queue is full.. so simply skip this iteration */
         return;
     }
-    Memory::MemoryRequest *request = core.memoryHierarchy->get_free_request(core.get_coreid());
-    assert(request != NULL);
-
+    Memory::MemoryRequest *request = new MemoryRequest();
     request->init(core.get_coreid(), threadid, pteaddr, idx, sim_cycle,
             false, uop.rip.rip, uop.uuid, Memory::OPERATION_READ);
     request->set_coreSignal(&core.dcache_signal);

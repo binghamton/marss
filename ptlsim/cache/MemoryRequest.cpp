@@ -34,13 +34,16 @@
 #include <ptlhwdef.h>
 #endif
 
-#include "MemoryRequest.h"
 #include <statelist.h>
 #include <memoryHierarchy.h>
 
+#include "MemoryRequest.h"
+#include "PoolAllocator.h"
 
 using namespace Memory;
 
+// Request pool allocator; quickly allocate/move/release requests.
+PoolAllocator <MemoryRequest, 1024> MemoryRequest::Allocator;
 
 void MemoryRequest::init(W8 coreId,
 		W8 threadId,
@@ -122,49 +125,3 @@ bool MemoryRequest::is_same(MemoryRequest *request)
 	return false;
 }
 
-
-RequestPool::RequestPool()
-{
-	size_ = REQUEST_POOL_SIZE;
-	foreach(i, REQUEST_POOL_SIZE) {
-		freeRequestList_.enqueue((selfqueuelink*)&((*this)[i]));
-	}
-}
-
-MemoryRequest* RequestPool::get_free_request()
-{
-	if (isPoolLow()){
-		garbage_collection();
-        /* if asserted here please increase REQUEST_POOL_SIZE */
-		assert(!isEmpty());
-	}
-	MemoryRequest* memoryRequest = (MemoryRequest*)freeRequestList_.peek();
-	freeRequestList_.remove((selfqueuelink*)memoryRequest);
-	usedRequestsList_.enqueue((selfqueuelink*)memoryRequest);
-
-	return memoryRequest;
-}
-
-void RequestPool::freeRequest( MemoryRequest* memoryrequest)
-{
-    /* we should free it only when no one refrence to it  */
-	assert(0 == memoryrequest->get_ref_counter());
-	usedRequestsList_.remove(memoryrequest);
-	freeRequestList_.enqueue(memoryrequest);
-	memoryrequest->set_ref_counter(0);
-}
-
-void RequestPool::garbage_collection()
-{
-	int cleaned = 0;
-	MemoryRequest *memoryRequest;
-	foreach_list_mutable(usedRequestsList_, memoryRequest, \
-			entry, nextentry){
-		if (0 == memoryRequest->get_ref_counter()){
-			freeRequest(memoryRequest);
-			cleaned++;
-		}
-	}
-	memdebug("number of Request cleaned by garbageCollector is: ",
-		   cleaned,	endl);
-}

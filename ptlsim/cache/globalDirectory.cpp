@@ -535,8 +535,7 @@ bool DirectoryController::send_update_cb(void *arg)
         return true;
     }
 
-    newEntry->request = memoryHierarchy_->get_free_request(
-            queueEntry->request->get_coreid());
+    newEntry->request = new MemoryRequest();
     newEntry->request->init(queueEntry->request);
     newEntry->request->incRefCounter();
     newEntry->request->setType(OPERATION_UPDATE);
@@ -593,8 +592,7 @@ bool DirectoryController::send_evict_cb(void *arg)
 
         assert(newEntry);
 
-        newEntry->request = memoryHierarchy_->get_free_request(
-                queueEntry->request->get_coreid());
+        newEntry->request = new MemoryRequest();
         newEntry->request->init(queueEntry->request);
         newEntry->request->incRefCounter();
         newEntry->request->setType(OPERATION_EVICT);
@@ -808,8 +806,7 @@ DirectoryEntry* DirectoryController::get_directory_entry(
 
             assert(newEntry);
 
-            newEntry->request = memoryHierarchy_->get_free_request(
-                    req->get_coreid());
+            newEntry->request = new MemoryRequest();
             newEntry->request->init(req);
             newEntry->request->incRefCounter();
             newEntry->request->set_physical_address(old_tag);

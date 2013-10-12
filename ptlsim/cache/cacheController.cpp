@@ -810,9 +810,7 @@ void CacheController::annul_request(MemoryRequest *request)
 bool CacheController::send_update_message(CacheQueueEntry *queueEntry,
 		W64 tag)
 {
-	MemoryRequest *request = memoryHierarchy_->get_free_request(
-            queueEntry->request->get_coreid());
-	assert(request);
+  MemoryRequest *request = new MemoryRequest();
 
 	request->init(queueEntry->request);
 	request->setType(OPERATION_UPDATE);
@@ -857,10 +855,7 @@ void CacheController::do_prefetch(MemoryRequest *request, int additional_delay)
 	if(pendingRequests_.count() > pendingRequests_.size() * 0.7)
 		return;
 
-	MemoryRequest *new_request = memoryHierarchy_->get_free_request(
-            request->get_coreid());
-	assert(new_request);
-
+  MemoryRequest* new_request = new MemoryRequest();
 	new_request->init(request);
 
 	/* Now generate a new address for the prefetch */

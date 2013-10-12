@@ -175,7 +175,9 @@ namespace Memory {
   class MemoryHierarchy {
   public:
     MemoryHierarchy(BaseMachine& machine);
-    ~MemoryHierarchy(); // release memory for pool
+
+    // TODO: Free the MemoryRequest pool.
+    ~MemoryHierarchy() {}
 
 	// check L1 availability
     bool is_cache_available(W8 coreid, W8 threadid, bool is_icache);
@@ -213,10 +215,6 @@ namespace Memory {
 
 	// Add event into event queue
 	void add_event(Signal *signal, int delay, void *arg);
-
-	MemoryRequest* get_free_request(int id) {
-		return requestPool_[id]->get_free_request();
-	}
 
 	void set_controller_full(Controller* controller, bool flag);
 	void set_interconnect_full(Interconnect* interconnect, bool flag);
@@ -272,9 +270,6 @@ namespace Memory {
 
     // number of cores
     int coreNo_;
-
-	// Request pool
-	dynarray<RequestPool*> requestPool_;
 
 	// Message pool
 	FixStateList<Message, 128> messageQueue_;

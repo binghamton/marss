@@ -54,20 +54,6 @@ MemoryHierarchy::MemoryHierarchy(BaseMachine& machine) :
     , someStructIsFull_(false)
 {
     coreNo_ = machine_.get_num_cores();
-
-    foreach(i, NUM_SIM_CORES) {
-        RequestPool* pool = new RequestPool();
-        requestPool_.push(pool);
-    }
-}
-
-MemoryHierarchy::~MemoryHierarchy()
-{
-    foreach(i, NUM_SIM_CORES) {
-        RequestPool* pool = requestPool_.pop();
-        delete pool;
-    }
-    requestPool_.clear();
 }
 
 bool MemoryHierarchy::access_cache(MemoryRequest *request)
@@ -205,13 +191,6 @@ void MemoryHierarchy::dump_info(ostream& os)
 	os << "Events in Queue:\n";
 	os << eventQueue_, "\n";
 
-    foreach(i, NUM_SIM_CORES) {
-        RequestPool* pool = requestPool_[i];
-        os << "Request Pool " << i << endl;
-        os << *pool;
-    }
-
-	os << "Request pool is done...\n";
 	os << "::CPU Controllers::\n";
 	foreach(i, cpuControllers_.count()) {
 		os << *((CPUController*)cpuControllers_[i]);
@@ -344,7 +323,7 @@ void MemoryHierarchy::annul_request(W8 coreid,
 	 * implement a logic where every cache will check physaddr's cache line
 	 * address with pending requests and flush them.
      */
-	MemoryRequest* memRequest = get_free_request(coreid);
+	MemoryRequest* memRequest = new MemoryRequest();
 	memRequest->init(coreid, threadid, physaddr, robid, sim_cycle, is_icache,
 			-1, -1, (is_write ? OPERATION_WRITE : OPERATION_READ));
 	cpuControllers_[coreid]->annul_request(memRequest);
