@@ -52,12 +52,8 @@ class MemoryRequest {
 
 public:
   //
-  // Constructors just reset/set/copy all fields accordingly.
+  // Constructors just set/copy all fields accordingly.
   //
-  MemoryRequest() : coreSignal(NULL), history(NULL), physicalAddress(0),
-    cycles(0), ownerRIP(0), ownerUUID(0), coreId(0), threadId(0), refCounter(0),
-    robId(0), operationType(OPERATION_INVALID), isData(0) {}
-
   MemoryRequest(unsigned coreId_, unsigned threadId_, uint64_t physicalAddress_,
     int robId_, uint64_t cycles_, bool isInstruction, uint64_t ownerRIP_, 
     uint64_t ownerUUID_, OperationType operationType_) :
