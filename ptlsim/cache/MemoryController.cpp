@@ -298,22 +298,29 @@ bool MemoryController::wait_interconnect_cb(void *arg)
   return true;
 }
 
-void MemoryController::annul_request(MemoryRequest *request)
-{
-    MemoryQueueEntry *queueEntry;
-    for(auto iter = pendingRequests.begin();
-      iter != pendingRequests.end(); iter++) {
-      queueEntry = *iter;
+void MemoryController::annul_request(MemoryRequest *request) {
+  auto iter = pendingRequests.begin();
+  while (iter != pendingRequests.end()) {
+    MemoryQueueEntry* queueEntry = *iter;
 
-        if(*queueEntry->request == *request) {
-            queueEntry->annuled = true;
-            if(!queueEntry->inUse) {
-                queueEntry->request->decRefCounter();
-                ADD_HISTORY_REM(queueEntry->request);
-                pendingRequests.erase(iter);
-            }
-        }
+    if(*queueEntry->request == *request) {
+      queueEntry->annuled = true;
+
+      if(!queueEntry->inUse) {
+        queueEntry->request->decRefCounter();
+        ADD_HISTORY_REM(queueEntry->request);
+        pendingRequests.erase(iter);
+      }
+
+      else
+        ++iter;
+
+      // TODO: Break here?
     }
+
+    else
+      ++iter;
+  }
 }
 
 int MemoryController::get_no_pending_request(W8 coreid)
