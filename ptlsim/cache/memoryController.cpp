@@ -117,8 +117,12 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 	 */
 	if(message->request->getType() == OPERATION_UPDATE) {
 		MemoryQueueEntry *entry;
-		foreach_list_mutable_backwards(pendingRequests_.list(),
-				entry, entry_t, nextentry_t) {
+    std::deque<MemoryQueueEntry*>::reverse_iterator iter;
+
+    for(iter = pendingRequests.rbegin();
+      iter != pendingRequests.rend(); ++iter) {
+      entry = *iter;
+
 			if(entry->request->getPhysicalAddress() ==
 					message->request->getPhysicalAddress()) {
 				/*
@@ -145,28 +149,35 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 		}
 	}
 
-	MemoryQueueEntry *queueEntry = pendingRequests_.alloc();
+	//MemoryQueueEntry *queueEntry = pendingRequests_.alloc();
 
 	/* if queue is full return false to indicate failure */
-	if(queueEntry == NULL) {
+	if(pendingRequests.size() > (MEM_REQ_NUM)) {
 		memdebug("Memory queue is full\n");
 		return false;
 	}
 
-	if(pendingRequests_.isFull()) {
+	if(pendingRequests.size() > (MEM_REQ_NUM - 1)) {
 		memoryHierarchy_->set_controller_full(this, true);
 	}
 
-	queueEntry->request = message->request;
-	queueEntry->source = (Controller*)message->origin;
+  MemoryQueueEntry* queueEntry = new MemoryQueueEntry();
+  queueEntry->request = message->request;
+  queueEntry->source = (Controller*) message->origin;
+  queueEntry->request->incRefCounter();
+  ADD_HISTORY_ADD(queueEntry->request);
+  queueEntry->inUse = false;
 
-	queueEntry->request->incRefCounter();
-	ADD_HISTORY_ADD(queueEntry->request);
+	//queueEntry->request = message->request;
+	//queueEntry->source = (Controller*)message->origin;
+	//queueEntry->request->incRefCounter();
+	//ADD_HISTORY_ADD(queueEntry->request);
 
 	int bank_no = get_bank_id(message->request->
 			getPhysicalAddress());
 
-    assert(queueEntry->inUse == false);
+  assert(queueEntry->inUse == false);
+  pendingRequests.push_back(queueEntry);
 
 	if(banksUsed_[bank_no] == 0) {
 		banksUsed_[bank_no] = 1;
@@ -181,8 +192,8 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 void MemoryController::print(ostream& os) const
 {
 	os << "---Memory-Controller: ", get_name(), endl;
-	if(pendingRequests_.count() > 0)
-		os << "Queue : ", pendingRequests_, endl;
+	if(pendingRequests.size() > 0)
+		//os << "Queue : ", pendingRequests, endl;
     os << "banksUsed_: ", banksUsed_, endl;
 	os << "---End Memory-Controller: ", get_name(), endl;
 }
@@ -217,8 +228,12 @@ bool MemoryController::access_completed_cb(void *arg)
      * for the same bank
      */
     MemoryQueueEntry* entry;
-    foreach_list_mutable(pendingRequests_.list(), entry, entry_t,
-            prev_t) {
+    std::deque<MemoryQueueEntry*>::iterator iter;
+
+    for(iter = pendingRequests.begin();
+      iter != pendingRequests.end(); ++iter) {
+        entry = *iter;
+
         int bank_no_2 = get_bank_id(entry->request->
                 getPhysicalAddress());
         if(bank_no == bank_no_2 && entry->inUse == false) {
@@ -240,7 +255,16 @@ bool MemoryController::access_completed_cb(void *arg)
     } else {
         queueEntry->request->decRefCounter();
         ADD_HISTORY_REM(queueEntry->request);
-        pendingRequests_.free(queueEntry);
+
+      for(iter = pendingRequests.begin();
+        iter != pendingRequests.end(); ++iter) {
+
+        if ((*iter) == queueEntry) {
+          pendingRequests.erase(iter);
+          break;
+        }
+      }
+//        pendingRequests_.free(queueEntry);
     }
 
     return true;
@@ -254,9 +278,19 @@ bool MemoryController::wait_interconnect_cb(void *arg)
 
 	/* Don't send response if its a memory update request */
 	if(queueEntry->request->getType() == OPERATION_UPDATE) {
+    std::deque<MemoryQueueEntry*>::iterator iter;
 		queueEntry->request->decRefCounter();
 		ADD_HISTORY_REM(queueEntry->request);
-		pendingRequests_.free(queueEntry);
+
+    for(iter = pendingRequests.begin();
+      iter != pendingRequests.end(); ++iter) {
+
+      if ((*iter) == queueEntry) {
+        pendingRequests.erase(iter);
+        break;
+      }
+    }
+//		pendingRequests_.free(queueEntry);
 		return true;
 	}
 
@@ -277,11 +311,20 @@ bool MemoryController::wait_interconnect_cb(void *arg)
 		/* Failed to response to cache, retry after 1 cycle */
 		marss_add_event(&waitInterconnect_, 1, queueEntry);
 	} else {
+    std::deque<MemoryQueueEntry*>::iterator iter;
 		queueEntry->request->decRefCounter();
 		ADD_HISTORY_REM(queueEntry->request);
-        pendingRequests_.free(queueEntry);
+    for(iter = pendingRequests.begin();
+      iter != pendingRequests.end(); ++iter) {
 
-		if(!pendingRequests_.isFull()) {
+      if ((*iter) == queueEntry) {
+        pendingRequests.erase(iter);
+        break;
+      }
+    }
+    //pendingRequests_.free(queueEntry);
+
+		if(pendingRequests.size() < MEM_REQ_NUM) {
 			memoryHierarchy_->set_controller_full(this, false);
 		}
 	}
@@ -291,14 +334,20 @@ bool MemoryController::wait_interconnect_cb(void *arg)
 void MemoryController::annul_request(MemoryRequest *request)
 {
     MemoryQueueEntry *queueEntry;
-    foreach_list_mutable(pendingRequests_.list(), queueEntry,
-            entry, nextentry) {
+    std::deque<MemoryQueueEntry*>::iterator iter;
+    for(iter = pendingRequests.begin();
+      iter != pendingRequests.end(); ++iter) {
+      queueEntry = *iter;
+
+    //foreach_list_mutable(pendingRequests_.list(), queueEntry,
+    //        entry, nextentry) {
         if(*queueEntry->request == *request) {
             queueEntry->annuled = true;
             if(!queueEntry->inUse) {
                 queueEntry->request->decRefCounter();
                 ADD_HISTORY_REM(queueEntry->request);
-                pendingRequests_.free(queueEntry);
+                pendingRequests.erase(iter);
+                //pendingRequests_.free(queueEntry);
             }
         }
     }
@@ -308,8 +357,13 @@ int MemoryController::get_no_pending_request(W8 coreid)
 {
 	int count = 0;
 	MemoryQueueEntry *queueEntry;
-	foreach_list_mutable(pendingRequests_.list(), queueEntry,
-			entry, nextentry) {
+  std::deque<MemoryQueueEntry*>::iterator iter;
+  for(iter = pendingRequests.begin();
+    iter != pendingRequests.end(); ++iter) {
+    queueEntry = *iter;
+
+//	foreach_list_mutable(pendingRequests_.list(), queueEntry,
+//			entry, nextentry) {
 		if(queueEntry->request->getCoreId() == coreid)
 			count++;
 	}
@@ -330,7 +384,7 @@ void MemoryController::dump_configuration(YAML::Emitter &out) const
 	YAML_KEY_VAL(out, "number_of_banks", MEM_BANKS);
 	YAML_KEY_VAL(out, "latency", latency_);
 	YAML_KEY_VAL(out, "latency_ns", simcycles_to_ns(latency_));
-	YAML_KEY_VAL(out, "pending_queue_size", pendingRequests_.size());
+	YAML_KEY_VAL(out, "pending_queue_size", pendingRequests.size());
 
 	out << YAML::EndMap;
 }

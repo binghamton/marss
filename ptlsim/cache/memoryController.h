@@ -32,10 +32,11 @@
 #include <interconnect.h>
 #include <superstl.h>
 #include <memoryStats.h>
+#include <deque>
 
 namespace Memory {
 
-struct MemoryQueueEntry : public FixStateListObject
+struct MemoryQueueEntry //: public FixStateListObject
 {
 	MemoryRequest *request;
 	Controller *source;
@@ -73,7 +74,8 @@ class MemoryController : public Controller
 		Signal accessCompleted_;
 		Signal waitInterconnect_;
 
-		FixStateList<MemoryQueueEntry, MEM_REQ_NUM> pendingRequests_;
+		//FixStateList<MemoryQueueEntry, MEM_REQ_NUM> pendingRequests_;
+    std::deque<MemoryQueueEntry*> pendingRequests;
 
         int latency_;
 		int bankBits_;
@@ -98,7 +100,7 @@ class MemoryController : public Controller
 		virtual int get_no_pending_request(W8 coreid);
 
 		bool is_full(bool fromInterconnect = false) const {
-			return pendingRequests_.isFull();
+      return pendingRequests.size() > MEM_REQ_NUM;
 		}
 
 		void print_map(ostream& os)
