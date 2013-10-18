@@ -21,64 +21,61 @@
 #include "MemoryController.h"
 #include <memoryHierarchy.h>
 #include <algorithm>
+#include <cassert>
 #include <deque>
 
 #include <machine.h>
 
 using namespace Memory;
 
+//
+// Overloaded ostream operator for output.
+//
+std::ostream& operator<<(std::ostream& os, const MemoryQueueEntry& entry) {
+  if(entry.request)
+    os << "Request{" << *entry.request << "} ";
+
+  if (entry.source)
+    os << "source[" << entry.source->get_name() <<  "] ";
+
+  os << "annuled[" << entry.annuled << "] ";
+  os << "inUse[" << entry.inUse << "]\n";
+
+  return os;
+}
+
 MemoryController::MemoryController(W8 coreid, const char *name,
-  	MemoryHierarchy *memoryHierarchy) :
+    MemoryHierarchy *memoryHierarchy) :
   Controller(coreid, name, memoryHierarchy)
     , new_stats(name, &memoryHierarchy->get_machine())
 {
-    memoryHierarchy_->add_cache_mem_controller(this);
+  unsigned i;
+  memoryHierarchy_->add_cache_mem_controller(this);
 
-    if(!memoryHierarchy_->get_machine().get_option(name, "latency", latency_)) {
-        latency_ = 50;
-    }
+  if(!memoryHierarchy->get_machine().get_option(name, "latency", latency))
+      latency = 50;
 
-    /* Convert latency from ns to cycles */
-    latency_ = ns_to_simcycles(latency_);
+  /* Convert latency from ns to cycles */
+  latency = ns_to_simcycles(latency);
 
-    SET_SIGNAL_CB(name, "_Access_Completed", accessCompleted_,
-            &MemoryController::access_completed_cb);
+  SET_SIGNAL_CB(name, "_Access_Completed", accessCompleted,
+    &MemoryController::access_completed_cb);
 
-    SET_SIGNAL_CB(name, "_Wait_Interconnect", waitInterconnect_,
-            &MemoryController::wait_interconnect_cb);
+  SET_SIGNAL_CB(name, "_Wait_Interconnect", waitInterconnect,
+    &MemoryController::wait_interconnect_cb);
 
-  bankBits_ = log2(MEM_BANKS);
-
-  foreach(i, MEM_BANKS) {
-  	banksUsed_[i] = 0;
-  }
+  bankBits = log2(MEM_BANKS);
+  for (i = 0; i < MEM_BANKS; i++)
+    banksUsed[i] = 0;
 }
 
-/*
- * @brief: get bank id from input address using
- *         cache line interleaving address mapping
- *         using lower bits for bank id
- *
- * @param: addr - input address of the memory request
- *
- * @return: bank id of input address
- *
- */
-int MemoryController::get_bank_id(W64 addr)
-{
-    return lowbits(addr >> 6, bankBits_);
-}
+void MemoryController::register_interconnect(
+  Interconnect *interconnect, int type) {
 
-void MemoryController::register_interconnect(Interconnect *interconnect,
-        int type)
-{
-    switch(type) {
-        case INTERCONN_TYPE_UPPER:
-            cacheInterconnect_ = interconnect;
-            break;
-        default:
-            assert(0);
-    }
+  assert(type == INTERCONN_TYPE_UPPER &&
+    "Can only register upper interconnects.");
+
+  cacheInterconnect = interconnect;
 }
 
 bool MemoryController::handle_interconnect_cb(void *arg)
@@ -88,8 +85,8 @@ bool MemoryController::handle_interconnect_cb(void *arg)
   memdebug("Received message in Memory controller: ", *message, endl);
 
   if(message->hasData && message->request->getType() !=
-  		OPERATION_UPDATE)
-  	return true;
+      OPERATION_UPDATE)
+    return true;
 
     if (message->request->getType() == OPERATION_EVICT) {
         /* We ignore all the evict messages */
@@ -103,48 +100,48 @@ bool MemoryController::handle_interconnect_cb(void *arg)
    * those requests then merge them into one request
    */
   if(message->request->getType() == OPERATION_UPDATE) {
-  	MemoryQueueEntry *entry;
+    MemoryQueueEntry *entry;
 
     for(auto iter = pendingRequests.rbegin();
       iter != pendingRequests.rend(); ++iter) {
       entry = *iter;
 
-  		if(entry->request->getPhysicalAddress() ==
-  				message->request->getPhysicalAddress()) {
-  			/*
-  			 * found an request for same line, now if this
-  			 * request is memory update then merge else
-  			 * don't merge to maintain the serialization
-  			 * order
-  			 */
-  			if(!entry->inUse && entry->request->getType() ==
-  					OPERATION_UPDATE) {
-  				/*
-  				 * We can merge the request, so in simulation
-  				 * we dont have data, so don't do anything
-  				 */
-  				return true;
-  			}
-  			/*
-  			 * we can't merge the request, so do normal
-  			 * simuation by adding the entry to pending request
-  			 * queue.
-  			 */
-  			break;
-  		}
-  	}
+      if(entry->request->getPhysicalAddress() ==
+          message->request->getPhysicalAddress()) {
+        /*
+         * found an request for same line, now if this
+         * request is memory update then merge else
+         * don't merge to maintain the serialization
+         * order
+         */
+        if(!entry->inUse && entry->request->getType() ==
+            OPERATION_UPDATE) {
+          /*
+           * We can merge the request, so in simulation
+           * we dont have data, so don't do anything
+           */
+          return true;
+        }
+        /*
+         * we can't merge the request, so do normal
+         * simuation by adding the entry to pending request
+         * queue.
+         */
+        break;
+      }
+    }
   }
 
   //MemoryQueueEntry *queueEntry = pendingRequests_.alloc();
 
   /* if queue is full return false to indicate failure */
   if(pendingRequests.size() > (MEM_REQ_NUM)) {
-  	memdebug("Memory queue is full\n");
-  	return false;
+    memdebug("Memory queue is full\n");
+    return false;
   }
 
   if(pendingRequests.size() > (MEM_REQ_NUM - 1)) {
-  	memoryHierarchy_->set_controller_full(this, true);
+    memoryHierarchy_->set_controller_full(this, true);
   }
 
   MemoryQueueEntry* queueEntry = new MemoryQueueEntry();
@@ -154,17 +151,17 @@ bool MemoryController::handle_interconnect_cb(void *arg)
   ADD_HISTORY_ADD(queueEntry->request);
   queueEntry->inUse = false;
 
-  int bank_no = get_bank_id(message->request->
-  		getPhysicalAddress());
+  int bank_no = getBankID(message->request->
+      getPhysicalAddress());
 
   assert(queueEntry->inUse == false);
   pendingRequests.push_back(queueEntry);
 
-  if(banksUsed_[bank_no] == 0) {
-  	banksUsed_[bank_no] = 1;
-  	queueEntry->inUse = true;
-  	marss_add_event(&accessCompleted_, latency_,
-  			queueEntry);
+  if(banksUsed[bank_no] == 0) {
+    banksUsed[bank_no] = 1;
+    queueEntry->inUse = true;
+    marss_add_event(&accessCompleted, latency,
+        queueEntry);
   }
 
   return true;
@@ -180,7 +177,7 @@ void MemoryController::print(ostream& os) const {
       std::cout << iter << std::endl;
   }
 
-  os << "banksUsed_: " << banksUsed_ << std::endl;
+  os << "banksUsed: " << banksUsed << std::endl;
   os << "---End Memory-Controller: " << get_name() << std::endl;
 }
 
@@ -190,9 +187,9 @@ bool MemoryController::access_completed_cb(void *arg)
 
     bool kernel = queueEntry->request->is_kernel();
 
-    int bank_no = get_bank_id(queueEntry->request->
+    int bank_no = getBankID(queueEntry->request->
             getPhysicalAddress());
-    banksUsed_[bank_no] = 0;
+    banksUsed[bank_no] = 0;
 
     N_STAT_UPDATE(new_stats.bank_access, [bank_no]++, kernel);
     switch(queueEntry->request->getType()) {
@@ -218,13 +215,13 @@ bool MemoryController::access_completed_cb(void *arg)
     for (auto iter : pendingRequests) {
       entry = iter;
 
-        int bank_no_2 = get_bank_id(entry->request->
+        int bank_no_2 = getBankID(entry->request->
                 getPhysicalAddress());
         if(bank_no == bank_no_2 && entry->inUse == false) {
             entry->inUse = true;
-            marss_add_event(&accessCompleted_,
-                    latency_, entry);
-            banksUsed_[bank_no] = 1;
+            marss_add_event(&accessCompleted,
+                    latency, entry);
+            banksUsed[bank_no] = 1;
             break;
         }
     }
@@ -256,13 +253,13 @@ bool MemoryController::wait_interconnect_cb(void *arg)
 
   /* Don't send response if its a memory update request */
   if(queueEntry->request->getType() == OPERATION_UPDATE) {
-  	queueEntry->request->decRefCounter();
-  	ADD_HISTORY_REM(queueEntry->request);
+    queueEntry->request->decRefCounter();
+    ADD_HISTORY_REM(queueEntry->request);
 
     auto iter = std::find(pendingRequests.begin(), pendingRequests.end(), queueEntry);
     if (iter != pendingRequests.end())
       pendingRequests.erase(iter);
-  	return true;
+    return true;
   }
 
   /* First send response of the current request */
@@ -273,24 +270,24 @@ bool MemoryController::wait_interconnect_cb(void *arg)
   message.hasData = true;
 
   memdebug("Memory sending message: ", message);
-  success = cacheInterconnect_->get_controller_request_signal()->
-  	emit(&message);
+  success = cacheInterconnect->get_controller_request_signal()->
+    emit(&message);
   /* Free the message */
   memoryHierarchy_->free_message(&message);
 
   if(!success) {
-  	/* Failed to response to cache, retry after 1 cycle */
-  	marss_add_event(&waitInterconnect_, 1, queueEntry);
+    /* Failed to response to cache, retry after 1 cycle */
+    marss_add_event(&waitInterconnect, 1, queueEntry);
   } else {
-  	queueEntry->request->decRefCounter();
-  	ADD_HISTORY_REM(queueEntry->request);
+    queueEntry->request->decRefCounter();
+    ADD_HISTORY_REM(queueEntry->request);
     auto iter = std::find(pendingRequests.begin(), pendingRequests.end(), queueEntry);
     if (iter != pendingRequests.end())
       pendingRequests.erase(iter);
 
-  	if(pendingRequests.size() < MEM_REQ_NUM) {
-  		memoryHierarchy_->set_controller_full(this, false);
-  	}
+    if(pendingRequests.size() < MEM_REQ_NUM) {
+      memoryHierarchy_->set_controller_full(this, false);
+    }
   }
   return true;
 }
@@ -320,8 +317,8 @@ int MemoryController::get_no_pending_request(W8 coreid)
   for(auto iter : pendingRequests) {
     queueEntry = iter;
 
-  	if(queueEntry->request->getCoreId() == coreid)
-  		count++;
+    if(queueEntry->request->getCoreId() == coreid)
+      count++;
   }
   return count;
 }
@@ -338,8 +335,8 @@ void MemoryController::dump_configuration(YAML::Emitter &out) const
   YAML_KEY_VAL(out, "type", "dram_cont");
   YAML_KEY_VAL(out, "RAM_size", ram_size); /* ram_size is from QEMU */
   YAML_KEY_VAL(out, "number_of_banks", MEM_BANKS);
-  YAML_KEY_VAL(out, "latency", latency_);
-  YAML_KEY_VAL(out, "latency_ns", simcycles_to_ns(latency_));
+  YAML_KEY_VAL(out, "latency", latency);
+  YAML_KEY_VAL(out, "latency_ns", simcycles_to_ns(latency));
   YAML_KEY_VAL(out, "pending_queue_size", pendingRequests.size());
 
   out << YAML::EndMap;

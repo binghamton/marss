@@ -1,116 +1,106 @@
-
-/*
- * MARSSx86 : A Full System Computer-Architecture Simulator
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * Copyright 2009 Avadh Patel <apatel@cs.binghamton.edu>
- * Copyright 2009 Furat Afram <fafram@cs.binghamton.edu>
- *
- */
-
-#ifndef MEMORY_CONTROLLER_H
-#define MEMORY_CONTROLLER_H
-
-#include <controller.h>
-#include <interconnect.h>
-#include <memoryStats.h>
+// ============================================================================
+//  MemoryController.h: Memory controller class.
+//
+//  MARSS is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  MARSS is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with MARSS.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  Copyright 2013 Tyler Stachecki <tstache1@cs.binghamton.edu>
+//  Copyright 2009 Avadh Patel <apatel@cs.binghamton.edu>
+//  Copyright 2009 Furat Afram <fafram@cs.binghamton.edu>
+// ============================================================================
+#ifndef __MEMORYCONTROLLER_H__
+#define __MEMORYCONTROLLER_H__
+#include "controller.h"
+#include "interconnect.h"
+#include "MemoryRequest.h"
+#include "memoryStats.h"
 #include <deque>
 
 namespace Memory {
 
-struct MemoryQueueEntry //: public FixStateListObject
-{
+struct MemoryQueueEntry {
+  //
+  // TODO/FIXME: These shouldn't be public...
+  //
   MemoryRequest *request;
   Controller *source;
-  int depends;
   bool annuled;
   bool inUse;
 
-  void init() {
-  	request = NULL;
-  	depends = -1;
-  	annuled = false;
-  	inUse = false;
+public:
+  //
+  // Default constructor just resets all class members.
+  //
+  MemoryQueueEntry() : request(NULL),
+    annuled(false), inUse(false) {}
+
+  //
+  // Overloaded ostream operator for output.
+  //
+  friend std::ostream& operator<<(std::ostream& os,
+    const MemoryQueueEntry& entry);
+};
+
+class MemoryController : public Controller {
+  std::deque<MemoryQueueEntry*> pendingRequests;
+
+  Interconnect *cacheInterconnect;
+  bitvec<MEM_BANKS> banksUsed;
+
+  Signal accessCompleted;
+  Signal waitInterconnect;
+
+  int latency;
+  int bankBits;
+
+  RAMStats new_stats;
+
+  //
+  // Get bank ID from address using cache line interleaving
+  // address mapping (using lower bits for the bank ID).
+  //
+  unsigned getBankID(uint64_t address) const {
+    return lowbits(address >> 6, bankBits);
   }
 
-  ostream& print(ostream &os) const {
-  	if(request)
-  		os << "Request{", *request, "} ";
-        if (source)
-            os << "source[", source->get_name(), "] ";
-  	os << "depends[", depends, "] ";
-  	os << "annuled[", annuled, "] ";
-  	os << "inUse[", inUse, "] ";
-  	os << endl;
-  	return os;
+public:
+  MemoryController(W8 coreid, const char *name,
+    MemoryHierarchy *memoryHierarchy);
+  virtual bool handle_interconnect_cb(void *arg);
+  void print(ostream& os) const;
+
+  virtual void register_interconnect(Interconnect *interconnect, int type);
+
+  virtual bool access_completed_cb(void *arg);
+  virtual bool wait_interconnect_cb(void *arg);
+
+  void annul_request(MemoryRequest *request);
+  virtual void dump_configuration(YAML::Emitter &out) const;
+
+  virtual int get_no_pending_request(W8 coreid);
+
+  bool is_full(bool fromInterconnect = false) const {
+    return pendingRequests.size() > MEM_REQ_NUM;
+  }
+
+  void print_map(ostream& os) {
+    os << "Memory Controller: " << get_name() << endl;
+    os << "\tconnected to:" << endl;
+    os << "\t\tinterconnect: " << cacheInterconnect->get_name() << endl;
   }
 };
 
-class MemoryController : public Controller
-{
-  private:
-  	Interconnect *cacheInterconnect_;
+}
 
-  	bitvec<MEM_BANKS> banksUsed_;
+#endif
 
-  	Signal accessCompleted_;
-  	Signal waitInterconnect_;
-
-  	//FixStateList<MemoryQueueEntry, MEM_REQ_NUM> pendingRequests_;
-    std::deque<MemoryQueueEntry*> pendingRequests;
-
-        int latency_;
-  	int bankBits_;
-  	int get_bank_id(W64 addr);
-
-        RAMStats new_stats;
-
-  public:
-  	MemoryController(W8 coreid, const char *name,
-  			 MemoryHierarchy *memoryHierarchy);
-  	virtual bool handle_interconnect_cb(void *arg);
-  	void print(ostream& os) const;
-
-        virtual void register_interconnect(Interconnect *interconnect, int type);
-
-  	virtual bool access_completed_cb(void *arg);
-  	virtual bool wait_interconnect_cb(void *arg);
-
-  	void annul_request(MemoryRequest *request);
-  	virtual void dump_configuration(YAML::Emitter &out) const;
-
-  	virtual int get_no_pending_request(W8 coreid);
-
-  	bool is_full(bool fromInterconnect = false) const {
-      return pendingRequests.size() > MEM_REQ_NUM;
-  	}
-
-  	void print_map(ostream& os)
-  	{
-  		os << "Memory Controller: " << get_name() << endl;
-  		os << "\tconnected to:" << endl;
-  		os << "\t\tinterconnect: " << cacheInterconnect_->get_name() << endl;
-  	}
-
-};
-
-};
-
-#endif //MEMORY_CONTROLLER_H
