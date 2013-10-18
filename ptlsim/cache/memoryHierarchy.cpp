@@ -255,28 +255,6 @@ void MemoryHierarchy::sort_event_queue(Event *event)
 	return;
 }
 
-void MemoryHierarchy::sort_event_queue_tail(Event *event)
-{
-	// First make sure that given event is in tail of queue
-	assert(eventQueue_.tail() == event);
-
-	// No need to sort if only 1 event
-	if (eventQueue_.count() == 1)
-		return;
-
-	Event* entryEvent;
-	foreach_list_mutable_backwards(eventQueue_.list(), entryEvent, entry, preventry) {
-        if (entryEvent == event)
-            continue;
-
-        if (*event >= *entryEvent) {
-            eventQueue_.unlink(event);
-            eventQueue_.insert_after(event, (Event*)(entryEvent));
-            return;
-        }
-    }
-}
-
 void MemoryHierarchy::add_event(Signal *signal, int delay, void *arg)
 {
 	Event *event = eventQueue_.alloc();
