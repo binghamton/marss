@@ -28,8 +28,8 @@
 using namespace Memory;
 
 MemoryController::MemoryController(W8 coreid, const char *name,
-		MemoryHierarchy *memoryHierarchy) :
-	Controller(coreid, name, memoryHierarchy)
+  	MemoryHierarchy *memoryHierarchy) :
+  Controller(coreid, name, memoryHierarchy)
     , new_stats(name, &memoryHierarchy->get_machine())
 {
     memoryHierarchy_->add_cache_mem_controller(this);
@@ -47,11 +47,11 @@ MemoryController::MemoryController(W8 coreid, const char *name,
     SET_SIGNAL_CB(name, "_Wait_Interconnect", waitInterconnect_,
             &MemoryController::wait_interconnect_cb);
 
-	bankBits_ = log2(MEM_BANKS);
+  bankBits_ = log2(MEM_BANKS);
 
-	foreach(i, MEM_BANKS) {
-		banksUsed_[i] = 0;
-	}
+  foreach(i, MEM_BANKS) {
+  	banksUsed_[i] = 0;
+  }
 }
 
 /*
@@ -83,69 +83,69 @@ void MemoryController::register_interconnect(Interconnect *interconnect,
 
 bool MemoryController::handle_interconnect_cb(void *arg)
 {
-	Message *message = (Message*)arg;
+  Message *message = (Message*)arg;
 
-	memdebug("Received message in Memory controller: ", *message, endl);
+  memdebug("Received message in Memory controller: ", *message, endl);
 
-	if(message->hasData && message->request->getType() !=
-			OPERATION_UPDATE)
-		return true;
+  if(message->hasData && message->request->getType() !=
+  		OPERATION_UPDATE)
+  	return true;
 
     if (message->request->getType() == OPERATION_EVICT) {
         /* We ignore all the evict messages */
         return true;
     }
 
-	/*
-	 * if this request is a memory update request then
-	 * first check the pending queue and see if we have a
-	 * memory update request to same line and if we can merge
-	 * those requests then merge them into one request
-	 */
-	if(message->request->getType() == OPERATION_UPDATE) {
-		MemoryQueueEntry *entry;
+  /*
+   * if this request is a memory update request then
+   * first check the pending queue and see if we have a
+   * memory update request to same line and if we can merge
+   * those requests then merge them into one request
+   */
+  if(message->request->getType() == OPERATION_UPDATE) {
+  	MemoryQueueEntry *entry;
 
     for(auto iter = pendingRequests.rbegin();
       iter != pendingRequests.rend(); ++iter) {
       entry = *iter;
 
-			if(entry->request->getPhysicalAddress() ==
-					message->request->getPhysicalAddress()) {
-				/*
-				 * found an request for same line, now if this
-				 * request is memory update then merge else
-				 * don't merge to maintain the serialization
-				 * order
-				 */
-				if(!entry->inUse && entry->request->getType() ==
-						OPERATION_UPDATE) {
-					/*
-					 * We can merge the request, so in simulation
-					 * we dont have data, so don't do anything
-					 */
-					return true;
-				}
-				/*
-				 * we can't merge the request, so do normal
-				 * simuation by adding the entry to pending request
-				 * queue.
-				 */
-				break;
-			}
-		}
-	}
+  		if(entry->request->getPhysicalAddress() ==
+  				message->request->getPhysicalAddress()) {
+  			/*
+  			 * found an request for same line, now if this
+  			 * request is memory update then merge else
+  			 * don't merge to maintain the serialization
+  			 * order
+  			 */
+  			if(!entry->inUse && entry->request->getType() ==
+  					OPERATION_UPDATE) {
+  				/*
+  				 * We can merge the request, so in simulation
+  				 * we dont have data, so don't do anything
+  				 */
+  				return true;
+  			}
+  			/*
+  			 * we can't merge the request, so do normal
+  			 * simuation by adding the entry to pending request
+  			 * queue.
+  			 */
+  			break;
+  		}
+  	}
+  }
 
-	//MemoryQueueEntry *queueEntry = pendingRequests_.alloc();
+  //MemoryQueueEntry *queueEntry = pendingRequests_.alloc();
 
-	/* if queue is full return false to indicate failure */
-	if(pendingRequests.size() > (MEM_REQ_NUM)) {
-		memdebug("Memory queue is full\n");
-		return false;
-	}
+  /* if queue is full return false to indicate failure */
+  if(pendingRequests.size() > (MEM_REQ_NUM)) {
+  	memdebug("Memory queue is full\n");
+  	return false;
+  }
 
-	if(pendingRequests.size() > (MEM_REQ_NUM - 1)) {
-		memoryHierarchy_->set_controller_full(this, true);
-	}
+  if(pendingRequests.size() > (MEM_REQ_NUM - 1)) {
+  	memoryHierarchy_->set_controller_full(this, true);
+  }
 
   MemoryQueueEntry* queueEntry = new MemoryQueueEntry();
   queueEntry->request = message->request;
@@ -154,26 +154,26 @@ bool MemoryController::handle_interconnect_cb(void *arg)
   ADD_HISTORY_ADD(queueEntry->request);
   queueEntry->inUse = false;
 
-	int bank_no = get_bank_id(message->request->
-			getPhysicalAddress());
+  int bank_no = get_bank_id(message->request->
+  		getPhysicalAddress());
 
   assert(queueEntry->inUse == false);
   pendingRequests.push_back(queueEntry);
 
-	if(banksUsed_[bank_no] == 0) {
-		banksUsed_[bank_no] = 1;
-		queueEntry->inUse = true;
-		marss_add_event(&accessCompleted_, latency_,
-				queueEntry);
-	}
+  if(banksUsed_[bank_no] == 0) {
+  	banksUsed_[bank_no] = 1;
+  	queueEntry->inUse = true;
+  	marss_add_event(&accessCompleted_, latency_,
+  			queueEntry);
+  }
 
-	return true;
+  return true;
 }
 
 void MemoryController::print(ostream& os) const {
-	os << "---Memory-Controller: " << get_name() << std::endl;
+  os << "---Memory-Controller: " << get_name() << std::endl;
 
-	if(pendingRequests.size() > 0) {
+  if(pendingRequests.size() > 0) {
     os << "Queue : ";
 
     for (auto iter : pendingRequests)
@@ -181,7 +181,7 @@ void MemoryController::print(ostream& os) const {
   }
 
   os << "banksUsed_: " << banksUsed_ << std::endl;
-	os << "---End Memory-Controller: " << get_name() << std::endl;
+  os << "---End Memory-Controller: " << get_name() << std::endl;
 }
 
 bool MemoryController::access_completed_cb(void *arg)
@@ -250,49 +250,49 @@ bool MemoryController::access_completed_cb(void *arg)
 
 bool MemoryController::wait_interconnect_cb(void *arg)
 {
-	MemoryQueueEntry *queueEntry = (MemoryQueueEntry*)arg;
+  MemoryQueueEntry *queueEntry = (MemoryQueueEntry*)arg;
 
-	bool success = false;
+  bool success = false;
 
-	/* Don't send response if its a memory update request */
-	if(queueEntry->request->getType() == OPERATION_UPDATE) {
-		queueEntry->request->decRefCounter();
-		ADD_HISTORY_REM(queueEntry->request);
+  /* Don't send response if its a memory update request */
+  if(queueEntry->request->getType() == OPERATION_UPDATE) {
+  	queueEntry->request->decRefCounter();
+  	ADD_HISTORY_REM(queueEntry->request);
 
     auto iter = std::find(pendingRequests.begin(), pendingRequests.end(), queueEntry);
     if (iter != pendingRequests.end())
       pendingRequests.erase(iter);
-		return true;
-	}
+  	return true;
+  }
 
-	/* First send response of the current request */
-	Message& message = *memoryHierarchy_->get_message();
-	message.sender = this;
-	message.dest = queueEntry->source;
-	message.request = queueEntry->request;
-	message.hasData = true;
+  /* First send response of the current request */
+  Message& message = *memoryHierarchy_->get_message();
+  message.sender = this;
+  message.dest = queueEntry->source;
+  message.request = queueEntry->request;
+  message.hasData = true;
 
-	memdebug("Memory sending message: ", message);
-	success = cacheInterconnect_->get_controller_request_signal()->
-		emit(&message);
-	/* Free the message */
-	memoryHierarchy_->free_message(&message);
+  memdebug("Memory sending message: ", message);
+  success = cacheInterconnect_->get_controller_request_signal()->
+  	emit(&message);
+  /* Free the message */
+  memoryHierarchy_->free_message(&message);
 
-	if(!success) {
-		/* Failed to response to cache, retry after 1 cycle */
-		marss_add_event(&waitInterconnect_, 1, queueEntry);
-	} else {
-		queueEntry->request->decRefCounter();
-		ADD_HISTORY_REM(queueEntry->request);
+  if(!success) {
+  	/* Failed to response to cache, retry after 1 cycle */
+  	marss_add_event(&waitInterconnect_, 1, queueEntry);
+  } else {
+  	queueEntry->request->decRefCounter();
+  	ADD_HISTORY_REM(queueEntry->request);
     auto iter = std::find(pendingRequests.begin(), pendingRequests.end(), queueEntry);
     if (iter != pendingRequests.end())
       pendingRequests.erase(iter);
 
-		if(pendingRequests.size() < MEM_REQ_NUM) {
-			memoryHierarchy_->set_controller_full(this, false);
-		}
-	}
-	return true;
+  	if(pendingRequests.size() < MEM_REQ_NUM) {
+  		memoryHierarchy_->set_controller_full(this, false);
+  	}
+  }
+  return true;
 }
 
 void MemoryController::annul_request(MemoryRequest *request)
@@ -315,15 +315,15 @@ void MemoryController::annul_request(MemoryRequest *request)
 
 int MemoryController::get_no_pending_request(W8 coreid)
 {
-	int count = 0;
-	MemoryQueueEntry *queueEntry;
+  int count = 0;
+  MemoryQueueEntry *queueEntry;
   for(auto iter : pendingRequests) {
     queueEntry = iter;
 
-		if(queueEntry->request->getCoreId() == coreid)
-			count++;
-	}
-	return count;
+  	if(queueEntry->request->getCoreId() == coreid)
+  		count++;
+  }
+  return count;
 }
 
 /**
@@ -333,16 +333,16 @@ int MemoryController::get_no_pending_request(W8 coreid)
  */
 void MemoryController::dump_configuration(YAML::Emitter &out) const
 {
-	out << YAML::Key << get_name() << YAML::Value << YAML::BeginMap;
+  out << YAML::Key << get_name() << YAML::Value << YAML::BeginMap;
 
-	YAML_KEY_VAL(out, "type", "dram_cont");
-	YAML_KEY_VAL(out, "RAM_size", ram_size); /* ram_size is from QEMU */
-	YAML_KEY_VAL(out, "number_of_banks", MEM_BANKS);
-	YAML_KEY_VAL(out, "latency", latency_);
-	YAML_KEY_VAL(out, "latency_ns", simcycles_to_ns(latency_));
-	YAML_KEY_VAL(out, "pending_queue_size", pendingRequests.size());
+  YAML_KEY_VAL(out, "type", "dram_cont");
+  YAML_KEY_VAL(out, "RAM_size", ram_size); /* ram_size is from QEMU */
+  YAML_KEY_VAL(out, "number_of_banks", MEM_BANKS);
+  YAML_KEY_VAL(out, "latency", latency_);
+  YAML_KEY_VAL(out, "latency_ns", simcycles_to_ns(latency_));
+  YAML_KEY_VAL(out, "pending_queue_size", pendingRequests.size());
 
-	out << YAML::EndMap;
+  out << YAML::EndMap;
 }
 
 /* Memory Controller Builder */
