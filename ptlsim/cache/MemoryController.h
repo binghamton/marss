@@ -53,15 +53,14 @@ public:
 
 class MemoryController : public Controller {
   std::deque<MemoryQueueEntry*> pendingRequests;
-
   Interconnect *cacheInterconnect;
-  bitvec<MEM_BANKS> banksUsed;
 
   Signal accessCompleted;
   Signal waitInterconnect;
 
   int latency;
   int bankBits;
+  uint8_t banksUsed[MEM_BANKS];
 
   RAMStats new_stats;
 

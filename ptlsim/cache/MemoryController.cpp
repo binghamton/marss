@@ -22,6 +22,7 @@
 #include <memoryHierarchy.h>
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <deque>
 
 #include <machine.h>
@@ -49,7 +50,6 @@ MemoryController::MemoryController(W8 coreid, const char *name,
   Controller(coreid, name, memoryHierarchy)
     , new_stats(name, &memoryHierarchy->get_machine())
 {
-  unsigned i;
   memoryHierarchy_->add_cache_mem_controller(this);
 
   if(!memoryHierarchy->get_machine().get_option(name, "latency", latency))
@@ -65,8 +65,7 @@ MemoryController::MemoryController(W8 coreid, const char *name,
     &MemoryController::wait_interconnect_cb);
 
   bankBits = log2(MEM_BANKS);
-  for (i = 0; i < MEM_BANKS; i++)
-    banksUsed[i] = 0;
+  memset(banksUsed, 0, sizeof(banksUsed));
 }
 
 void MemoryController::register_interconnect(
@@ -168,6 +167,8 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 }
 
 void MemoryController::print(ostream& os) const {
+  unsigned i;
+
   os << "---Memory-Controller: " << get_name() << std::endl;
 
   if(pendingRequests.size() > 0) {
@@ -177,7 +178,12 @@ void MemoryController::print(ostream& os) const {
       std::cout << iter << std::endl;
   }
 
-  os << "banksUsed: " << banksUsed << std::endl;
+  os << "banksUsed: ";
+  for (i = 0; i < MEM_BANKS; i++)
+    os << i << " ";
+
+  os << "\n";
+
   os << "---End Memory-Controller: " << get_name() << std::endl;
 }
 
