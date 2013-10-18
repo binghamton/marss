@@ -33,6 +33,7 @@
 #include <statelist.h>
 #include <cacheConstants.h>
 #include "MemoryRequest.h"
+#include <yaml/yaml.h>
 
 namespace Memory {
 

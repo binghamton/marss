@@ -43,7 +43,7 @@
 #include <statelist.h>
 
 #include <cpuController.h>
-#include <memoryController.h>
+#include "MemoryController.h"
 
 #include <yaml/yaml.h>
 

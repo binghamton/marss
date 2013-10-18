@@ -1,40 +1,27 @@
-
-/*
- * MARSSx86 : A Full System Computer-Architecture Simulator
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * Copyright 2009 Avadh Patel <apatel@cs.binghamton.edu>
- * Copyright 2009 Furat Afram <fafram@cs.binghamton.edu>
- *
- */
-
-#ifdef MEM_TEST
-#include <test.h>
-#else
-#include <ptlsim.h>
-#define PTLSIM_PUBLIC_ONLY
-#include <ptlhwdef.h>
-#endif
-
-#include <memoryController.h>
+// ============================================================================
+//  MemoryController.cpp: Memory controller class.
+//
+//  MARSS is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  MARSS is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with MARSS.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  Copyright 2013 Tyler Stachecki <tstache1@cs.binghamton.edu>
+//  Copyright 2009 Avadh Patel <apatel@cs.binghamton.edu>
+//  Copyright 2009 Furat Afram <fafram@cs.binghamton.edu>
+// ============================================================================
+#include "MemoryController.h"
 #include <memoryHierarchy.h>
+#include <algorithm>
+#include <deque>
 
 #include <machine.h>
 
@@ -117,9 +104,8 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 	 */
 	if(message->request->getType() == OPERATION_UPDATE) {
 		MemoryQueueEntry *entry;
-    std::deque<MemoryQueueEntry*>::reverse_iterator iter;
 
-    for(iter = pendingRequests.rbegin();
+    for(auto iter = pendingRequests.rbegin();
       iter != pendingRequests.rend(); ++iter) {
       entry = *iter;
 
@@ -168,11 +154,6 @@ bool MemoryController::handle_interconnect_cb(void *arg)
   ADD_HISTORY_ADD(queueEntry->request);
   queueEntry->inUse = false;
 
-	//queueEntry->request = message->request;
-	//queueEntry->source = (Controller*)message->origin;
-	//queueEntry->request->incRefCounter();
-	//ADD_HISTORY_ADD(queueEntry->request);
-
 	int bank_no = get_bank_id(message->request->
 			getPhysicalAddress());
 
@@ -189,13 +170,18 @@ bool MemoryController::handle_interconnect_cb(void *arg)
 	return true;
 }
 
-void MemoryController::print(ostream& os) const
-{
-	os << "---Memory-Controller: ", get_name(), endl;
-	if(pendingRequests.size() > 0)
-		//os << "Queue : ", pendingRequests, endl;
-    os << "banksUsed_: ", banksUsed_, endl;
-	os << "---End Memory-Controller: ", get_name(), endl;
+void MemoryController::print(ostream& os) const {
+	os << "---Memory-Controller: " << get_name() << std::endl;
+
+	if(pendingRequests.size() > 0) {
+    os << "Queue : ";
+
+    for (auto iter : pendingRequests)
+      std::cout << iter << std::endl;
+  }
+
+  os << "banksUsed_: " << banksUsed_ << std::endl;
+	os << "---End Memory-Controller: " << get_name() << std::endl;
 }
 
 bool MemoryController::access_completed_cb(void *arg)
@@ -228,11 +214,9 @@ bool MemoryController::access_completed_cb(void *arg)
      * for the same bank
      */
     MemoryQueueEntry* entry;
-    std::deque<MemoryQueueEntry*>::iterator iter;
 
-    for(iter = pendingRequests.begin();
-      iter != pendingRequests.end(); ++iter) {
-        entry = *iter;
+    for (auto iter : pendingRequests) {
+      entry = iter;
 
         int bank_no_2 = get_bank_id(entry->request->
                 getPhysicalAddress());
@@ -256,15 +240,9 @@ bool MemoryController::access_completed_cb(void *arg)
         queueEntry->request->decRefCounter();
         ADD_HISTORY_REM(queueEntry->request);
 
-      for(iter = pendingRequests.begin();
-        iter != pendingRequests.end(); ++iter) {
-
-        if ((*iter) == queueEntry) {
+        auto iter = std::find(pendingRequests.begin(), pendingRequests.end(), queueEntry);
+        if (iter != pendingRequests.end())
           pendingRequests.erase(iter);
-          break;
-        }
-      }
-//        pendingRequests_.free(queueEntry);
     }
 
     return true;
@@ -278,19 +256,12 @@ bool MemoryController::wait_interconnect_cb(void *arg)
 
 	/* Don't send response if its a memory update request */
 	if(queueEntry->request->getType() == OPERATION_UPDATE) {
-    std::deque<MemoryQueueEntry*>::iterator iter;
 		queueEntry->request->decRefCounter();
 		ADD_HISTORY_REM(queueEntry->request);
 
-    for(iter = pendingRequests.begin();
-      iter != pendingRequests.end(); ++iter) {
-
-      if ((*iter) == queueEntry) {
-        pendingRequests.erase(iter);
-        break;
-      }
-    }
-//		pendingRequests_.free(queueEntry);
+    auto iter = std::find(pendingRequests.begin(), pendingRequests.end(), queueEntry);
+    if (iter != pendingRequests.end())
+      pendingRequests.erase(iter);
 		return true;
 	}
 
@@ -311,18 +282,11 @@ bool MemoryController::wait_interconnect_cb(void *arg)
 		/* Failed to response to cache, retry after 1 cycle */
 		marss_add_event(&waitInterconnect_, 1, queueEntry);
 	} else {
-    std::deque<MemoryQueueEntry*>::iterator iter;
 		queueEntry->request->decRefCounter();
 		ADD_HISTORY_REM(queueEntry->request);
-    for(iter = pendingRequests.begin();
-      iter != pendingRequests.end(); ++iter) {
-
-      if ((*iter) == queueEntry) {
-        pendingRequests.erase(iter);
-        break;
-      }
-    }
-    //pendingRequests_.free(queueEntry);
+    auto iter = std::find(pendingRequests.begin(), pendingRequests.end(), queueEntry);
+    if (iter != pendingRequests.end())
+      pendingRequests.erase(iter);
 
 		if(pendingRequests.size() < MEM_REQ_NUM) {
 			memoryHierarchy_->set_controller_full(this, false);
@@ -334,20 +298,16 @@ bool MemoryController::wait_interconnect_cb(void *arg)
 void MemoryController::annul_request(MemoryRequest *request)
 {
     MemoryQueueEntry *queueEntry;
-    std::deque<MemoryQueueEntry*>::iterator iter;
-    for(iter = pendingRequests.begin();
-      iter != pendingRequests.end(); ++iter) {
+    for(auto iter = pendingRequests.begin();
+      iter != pendingRequests.end(); iter++) {
       queueEntry = *iter;
 
-    //foreach_list_mutable(pendingRequests_.list(), queueEntry,
-    //        entry, nextentry) {
         if(*queueEntry->request == *request) {
             queueEntry->annuled = true;
             if(!queueEntry->inUse) {
                 queueEntry->request->decRefCounter();
                 ADD_HISTORY_REM(queueEntry->request);
                 pendingRequests.erase(iter);
-                //pendingRequests_.free(queueEntry);
             }
         }
     }
@@ -357,13 +317,9 @@ int MemoryController::get_no_pending_request(W8 coreid)
 {
 	int count = 0;
 	MemoryQueueEntry *queueEntry;
-  std::deque<MemoryQueueEntry*>::iterator iter;
-  for(iter = pendingRequests.begin();
-    iter != pendingRequests.end(); ++iter) {
-    queueEntry = *iter;
+  for(auto iter : pendingRequests) {
+    queueEntry = iter;
 
-//	foreach_list_mutable(pendingRequests_.list(), queueEntry,
-//			entry, nextentry) {
 		if(queueEntry->request->getCoreId() == coreid)
 			count++;
 	}

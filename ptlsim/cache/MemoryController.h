@@ -30,7 +30,6 @@
 
 #include <controller.h>
 #include <interconnect.h>
-#include <superstl.h>
 #include <memoryStats.h>
 #include <deque>
 
@@ -105,9 +104,9 @@ class MemoryController : public Controller
 
 		void print_map(ostream& os)
 		{
-			os << "Memory Controller: ", get_name(), endl;
-			os << "\tconnected to:", endl;
-			os << "\t\tinterconnect: ", cacheInterconnect_->get_name(), endl;
+			os << "Memory Controller: " << get_name() << endl;
+			os << "\tconnected to:" << endl;
+			os << "\t\tinterconnect: " << cacheInterconnect_->get_name() << endl;
 		}
 
 };
